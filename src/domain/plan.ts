@@ -14,8 +14,8 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     return a.length === b.length && a.every((value, index) => deepEqual(value, b[index]));
   }
   if (a && b && typeof a === 'object' && typeof b === 'object') {
-    const ak = Object.keys(a as Record<string, unknown>);
-    const bk = Object.keys(b as Record<string, unknown>);
+    const ak = Object.keys(a);
+    const bk = Object.keys(b);
     return ak.length === bk.length && ak.every(key => deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
   }
   return false;
@@ -57,7 +57,7 @@ export function rewriteFrontmatterTag(
   const raw = fm[key];
   if (Array.isArray(raw)) {
     let changed = false;
-    const mapped = raw.map(entry => {
+    const mapped = raw.map((entry: unknown) => {
       if (typeof entry !== 'string') return entry;
       const next = rewriteTagEntry(entry, from, to);
       if (next !== entry) changed = true;
@@ -119,8 +119,8 @@ function resolveMergeValue(
       return { value: sourceValue, conflict: false, keepTarget: false };
     case 'merge-list':
       if (Array.isArray(targetValue) && Array.isArray(sourceValue)) {
-        const merged = [...targetValue];
-        for (const item of sourceValue) {
+        const merged = [...(targetValue as unknown[])];
+        for (const item of sourceValue as unknown[]) {
           if (!merged.some(existing => deepEqual(existing, item))) merged.push(item);
         }
         return { value: merged, conflict: false, keepTarget: false };
@@ -192,9 +192,9 @@ export function planAddProperty(
     if (onConflict === 'append') {
       const existing = fm[key];
       if (Array.isArray(existing) && Array.isArray(value)) {
-        afterFrontmatter[key] = [...existing, ...value];
+        afterFrontmatter[key] = [...(existing as unknown[]), ...(value as unknown[])];
       } else if (Array.isArray(existing)) {
-        afterFrontmatter[key] = [...existing, value];
+        afterFrontmatter[key] = [...(existing as unknown[]), value];
       } else {
         afterFrontmatter[key] = [existing, value];
       }

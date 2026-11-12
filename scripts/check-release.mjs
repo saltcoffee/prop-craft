@@ -39,7 +39,7 @@ if (lock) {
 
 extractReleaseNotes(await readFile('CHANGELOG.md', 'utf8'), manifest.version);
 
-let git = false;
+let git;
 try {
   git = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { encoding: 'utf8' }).trim() === 'true';
 } catch {

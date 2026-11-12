@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import type { SettingDefinitionItem } from 'obsidian';
 import type PropCraftPlugin from './main';
 
 export class PropCraftSettingTab extends PluginSettingTab {
@@ -6,11 +7,11 @@ export class PropCraftSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
-  display(): void {
+  override display(): void {
     const { containerEl } = this;
     const t = this.plugin.t;
     containerEl.empty();
-    containerEl.createEl('h2', { text: t('settings.title') });
+    new Setting(containerEl).setName(t('settings.title')).setHeading();
 
     new Setting(containerEl)
       .setName(t('settings.language'))
@@ -125,5 +126,67 @@ export class PropCraftSettingTab extends PluginSettingTab {
           this.plugin.settings.debugLogging = value;
           await this.plugin.saveSettings();
         }));
+  }
+
+  override getSettingDefinitions(): SettingDefinitionItem[] {
+    const t = this.plugin.t;
+    return [
+      { name: t('settings.language'), desc: t('settings.languageDesc'), control: { type: 'dropdown', key: 'locale', options: { auto: t('settings.languageAuto'), zh: t('settings.languageZh'), en: t('settings.languageEn') }, defaultValue: 'auto' } },
+      { name: t('settings.orphanThreshold'), desc: t('settings.orphanThresholdDesc'), control: { type: 'number', key: 'orphanThreshold', defaultValue: 1, min: 1, step: 1 } },
+      { name: t('settings.similarity'), desc: t('settings.similarityDesc'), control: { type: 'number', key: 'duplicateSimilarityThreshold', defaultValue: 0.8, min: 0, max: 1, step: 0.05 } },
+      { name: t('settings.excludeGlobs'), desc: t('settings.excludeGlobsDesc'), control: { type: 'textarea', key: 'excludeGlobs', rows: 4, placeholder: '.trash/**' } },
+      { name: t('settings.templateFolder'), desc: t('settings.templateFolderDesc'), control: { type: 'text', key: 'templateFolder' } },
+      { name: t('settings.excludeTemplates'), desc: t('settings.excludeTemplatesDesc'), control: { type: 'toggle', key: 'excludeTemplates', defaultValue: true } },
+      { name: t('settings.concurrency'), desc: t('settings.concurrencyDesc'), control: { type: 'number', key: 'writeConcurrency', defaultValue: 8, min: 1, max: 16, step: 1 } },
+      { name: t('settings.journalMax'), desc: t('settings.journalMaxDesc'), control: { type: 'number', key: 'journalMaxTransactions', defaultValue: 10, min: 1, max: 100, step: 1 } },
+      { name: t('settings.dateRegion'), desc: t('settings.dateRegionDesc'), control: { type: 'dropdown', key: 'dateRegionFormat', options: { MDY: 'MM/DD/YYYY', DMY: 'DD/MM/YYYY', YMD: 'YYYY/MM/DD' }, defaultValue: 'MDY' } },
+      { name: t('settings.debug'), desc: t('settings.debugDesc'), control: { type: 'toggle', key: 'debugLogging', defaultValue: false } },
+    ];
+  }
+
+  override getControlValue(key: string): unknown {
+    if (key === 'excludeGlobs') return this.plugin.settings.excludeGlobs.join('\n');
+    return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+  }
+
+  override async setControlValue(key: string, value: unknown): Promise<void> {
+    const settings = this.plugin.settings;
+    switch (key) {
+      case 'excludeGlobs':
+        settings.excludeGlobs = String(value).split('\n').map(line => line.trim()).filter(Boolean);
+        break;
+      case 'orphanThreshold':
+        settings.orphanThreshold = Math.max(1, Math.floor(Number(value) || 1));
+        break;
+      case 'duplicateSimilarityThreshold':
+        settings.duplicateSimilarityThreshold = Math.min(1, Math.max(0, Number(value) || 0));
+        break;
+      case 'writeConcurrency':
+        settings.writeConcurrency = Math.min(16, Math.max(1, Math.floor(Number(value) || 8)));
+        break;
+      case 'journalMaxTransactions':
+        settings.journalMaxTransactions = Math.min(100, Math.max(1, Math.floor(Number(value) || 10)));
+        break;
+      case 'locale':
+        settings.locale = value === 'zh' || value === 'en' ? value : 'auto';
+        break;
+      case 'dateRegionFormat':
+        settings.dateRegionFormat = value === 'DMY' || value === 'YMD' ? value : 'MDY';
+        break;
+      case 'excludeTemplates':
+        settings.excludeTemplates = Boolean(value);
+        break;
+      case 'debugLogging':
+        settings.debugLogging = Boolean(value);
+        break;
+      case 'templateFolder':
+        settings.templateFolder = String(value).trim();
+        break;
+      default:
+        (settings as unknown as Record<string, unknown>)[key] = value;
+    }
+    await this.plugin.saveSettings();
+    if (key === 'locale') this.plugin.refreshViews();
+    else if (['orphanThreshold', 'duplicateSimilarityThreshold', 'excludeGlobs', 'templateFolder', 'excludeTemplates'].includes(key)) this.plugin.reindex();
   }
 }
