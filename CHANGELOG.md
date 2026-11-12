@@ -2,6 +2,20 @@
 
 Notable changes to PropCraft, grouped by release.
 
+## 0.1.1 — 2026-11-12
+
+### Fixed
+
+- Settings adopt Obsidian's declarative settings API (1.13+): they now render through `getSettingDefinitions()` and appear in Obsidian's settings search, with `display()` kept for older versions.
+- Use `window.setTimeout` / `window.clearTimeout` for popout-window compatibility.
+- Removed unnecessary non-null assertions and unsafe return/assignment casts surfaced by the plugin linter.
+- Renamed the command id to `open` so it no longer includes the plugin id, and awaited `Workspace.revealLeaf`.
+- Fixed a `no-useless-assignment` in the release check script.
+
+### Changed
+
+- Bumped the `obsidian` development type definitions to 1.14.4 for the declarative settings API.
+
 ## 0.1.0 — 2026-11-12
 
 ### Added
