@@ -1,0 +1,125 @@
+.propcraft-view {
+  height: 100%;
+}
+
+.propcraft {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.propcraft-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-wrap: wrap;
+}
+
+.propcraft-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.propcraft-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+.propcraft-tab:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.propcraft-tab.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+
+.propcraft-topbar-actions { display: flex; align-items: center; gap: 8px; }
+.propcraft-status { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+
+.propcraft-btn {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 5px 10px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.propcraft-btn:hover { background: var(--background-modifier-hover); }
+.propcraft-btn.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); border-color: transparent; }
+.propcraft-btn:disabled { opacity: 0.5; cursor: default; }
+
+.propcraft-main { flex: 1; overflow: auto; padding: 16px; }
+.propcraft-page { max-width: 1100px; margin: 0 auto; }
+.propcraft-page-title { margin: 0 0 12px; font-size: 1.2em; }
+
+.propcraft-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.propcraft-stat { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 12px; }
+.propcraft-stat-value { font-size: 1.6em; font-weight: 600; }
+.propcraft-stat-label { color: var(--text-muted); font-size: var(--font-ui-smaller); margin-top: 4px; }
+
+.propcraft-section-title { margin: 18px 0 8px; font-size: 1em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.propcraft-muted { color: var(--text-muted); }
+.propcraft-warn { color: var(--text-error); }
+.propcraft-empty { padding: 24px; text-align: center; color: var(--text-muted); }
+
+.propcraft-suggestions { display: flex; flex-direction: column; gap: 8px; }
+.propcraft-suggestion { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--background-secondary); border-radius: var(--radius-s); padding: 8px 12px; }
+.propcraft-quick { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.propcraft-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.propcraft-input { background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); padding: 5px 8px; color: var(--text-normal); min-width: 180px; }
+.propcraft-check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
+
+.propcraft-table-wrap { overflow: auto; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); }
+.propcraft-table { width: 100%; border-collapse: collapse; }
+.propcraft-table th, .propcraft-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--background-modifier-border); vertical-align: top; }
+.propcraft-table th { position: sticky; top: 0; background: var(--background-secondary); font-weight: 600; font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.propcraft-table tr:hover td { background: var(--background-modifier-hover); }
+.propcraft-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.propcraft-table tr.is-orphan td { background: var(--background-modifier-error-hover); }
+
+.propcraft-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.propcraft-link { background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: inherit; }
+.propcraft-link:hover { text-decoration: underline; }
+.propcraft-link.mod-danger { color: var(--text-error); }
+
+.propcraft-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--background-modifier-border); color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.propcraft-badge.mod-warn { background: var(--color-orange); color: #000; }
+
+.propcraft-groups { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.propcraft-group { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 10px; background: var(--background-secondary); }
+.propcraft-group-head { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); margin-bottom: 8px; font-size: var(--font-ui-smaller); }
+.propcraft-group-members { display: flex; flex-wrap: wrap; gap: 8px; }
+.propcraft-tagcard { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-s); background: var(--background-primary); border: 1px solid var(--background-modifier-border); cursor: grab; }
+.propcraft-tagcard.is-dragging { opacity: 0.5; }
+.propcraft-tagcard-count { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+
+.propcraft-form { display: flex; flex-direction: column; gap: 12px; max-width: 460px; }
+.propcraft-field { display: flex; flex-direction: column; gap: 4px; }
+.propcraft-field > span { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.propcraft-radios { display: flex; gap: 16px; }
+
+.propcraft-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.propcraft-dialog { background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 20px; min-width: 320px; max-width: 560px; }
+.propcraft-progress-title { margin-bottom: 12px; }
+.propcraft-progress-track { height: 8px; background: var(--background-secondary); border-radius: 999px; overflow: hidden; }
+.propcraft-progress-bar { height: 100%; background: var(--interactive-accent); transition: width 120ms ease; }
+.propcraft-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.propcraft-failed { max-height: 180px; overflow: auto; margin-top: 10px; }
+.propcraft-failed ul { margin: 4px 0 0; padding-left: 18px; }
+
+.propcraft-drawer-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: flex; justify-content: flex-end; z-index: 90; }
+.propcraft-drawer { width: 480px; max-width: 92vw; height: 100%; background: var(--background-primary); border-left: 1px solid var(--background-modifier-border); display: flex; flex-direction: column; padding: 16px; gap: 10px; }
+.propcraft-drawer-head { display: flex; justify-content: space-between; align-items: center; }
+.propcraft-drawer-summary { color: var(--text-muted); }
+.propcraft-drawer-body { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.propcraft-drawer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.propcraft-diff { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); }
+.propcraft-diff-path { padding: 6px 8px; background: var(--background-secondary); font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
+.propcraft-diff-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 8px; font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
+.propcraft-diff-row.is-del { background: var(--background-modifier-error-hover); }
+.propcraft-diff-row.is-add { background: var(--background-modifier-success); }
+.propcraft-diff-label { color: var(--text-muted); }
+.propcraft-diff-before { color: var(--text-error); }
+.propcraft-diff-after { color: var(--text-success); }

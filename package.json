@@ -1,0 +1,38 @@
+{
+  "name": "propcraft",
+  "version": "0.1.0",
+  "description": "Visual refactor studio for vault properties and tags: merge tags, rename keys, bulk-add fields, and normalize dates — no code.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "gua",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saltcoffee/prop-craft.git"
+  },
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests scripts *.mjs",
+    "test": "vitest run",
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "check:release": "node scripts/check-release.mjs",
+    "check": "npm run typecheck && npm test && npm run build && npm run check:release"
+  },
+  "dependencies": {
+    "preact": "^10.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "esbuild": "0.28.2",
+    "eslint": "10.13.0",
+    "obsidian": "1.8.7",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}
