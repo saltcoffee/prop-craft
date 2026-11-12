@@ -17,7 +17,7 @@ import { PropCraftView } from './ui/PropCraftView';
 import { confirmAction, promptText } from './ui/PromptModal';
 
 export default class PropCraftPlugin extends Plugin {
-  settings: PropCraftSettings = { ...DEFAULT_SETTINGS };
+  override settings: PropCraftSettings = { ...DEFAULT_SETTINGS };
   t!: Translate;
 
   store!: SnapshotStore;
@@ -53,7 +53,7 @@ export default class PropCraftPlugin extends Plugin {
     this.registerView(VIEW_TYPE_PROP_CRAFT, (leaf: WorkspaceLeaf) => new PropCraftView(leaf, this));
     this.addRibbonIcon('table', 'PropCraft', () => void this.activateView());
 
-    this.addCommand({ id: 'open-propcraft', name: this.t('commandOpen'), callback: () => void this.activateView() });
+    this.addCommand({ id: 'open', name: this.t('commandOpen'), callback: () => void this.activateView() });
     this.addCommand({ id: 'rebuild-index', name: this.t('commandRebuild'), callback: () => this.reindex() });
 
     this.addSettingTab(new PropCraftSettingTab(this.app, this));
@@ -161,6 +161,6 @@ export default class PropCraftPlugin extends Plugin {
       leaf = workspace.getLeaf('tab');
       await leaf.setViewState({ type: VIEW_TYPE_PROP_CRAFT, active: true });
     }
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
 }

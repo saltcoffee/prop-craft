@@ -18,7 +18,7 @@ export class ObsidianVaultAdapter implements VaultPort {
     if (!file) return null;
     const cache = this.app.metadataCache.getFileCache(file);
     if (!cache) return null;
-    const frontmatter = cache.frontmatter as Record<string, unknown> | undefined;
+    const frontmatter = cache.frontmatter;
     const withPosition = cache as unknown as {
       frontmatterPosition?: { end?: { offset?: number } };
     };

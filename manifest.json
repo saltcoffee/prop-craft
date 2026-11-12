@@ -1,7 +1,7 @@
 {
   "id": "propcraft",
   "name": "PropCraft",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.8.7",
   "description": "Visual refactor studio for vault properties and tags: merge tags, rename keys, bulk-add fields, and normalize dates — no code.",
   "author": "gua",

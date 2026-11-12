@@ -10,7 +10,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   check:
-    name: Validate plugin
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

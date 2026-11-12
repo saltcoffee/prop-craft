@@ -49,7 +49,7 @@ function groupScore(members: string[], normalize: (value: string) => string): nu
   let min = 1;
   for (let i = 0; i < members.length; i += 1) {
     for (let j = i + 1; j < members.length; j += 1) {
-      const score = similarityScore(normalize(members[i]!), normalize(members[j]!));
+      const score = similarityScore(normalize(members[i]), normalize(members[j]));
       if (score < min) min = score;
     }
   }
@@ -91,7 +91,7 @@ function collectGroups(
     const reasons = new Set<DuplicateReason>();
     for (let i = 0; i < members.length; i += 1) {
       for (let j = i + 1; j < members.length; j += 1) {
-        for (const reason of pairReasons(members[i]!, members[j]!, baseOf)) reasons.add(reason);
+        for (const reason of pairReasons(members[i], members[j], baseOf)) reasons.add(reason);
       }
     }
     if (reasons.size === 0) reasons.add('similarity');
@@ -114,8 +114,8 @@ function collectGroups(
       const candidates = [...bucket, ...(byLength.get(length + 1) ?? [])];
       for (let i = 0; i < candidates.length; i += 1) {
         for (let j = i + 1; j < candidates.length; j += 1) {
-          const a = candidates[i]!;
-          const b = candidates[j]!;
+          const a = candidates[i];
+          const b = candidates[j];
           if (a === b) continue;
           const distance = levenshtein(normalize(a), normalize(b), 1);
           if (distance > 1) continue;

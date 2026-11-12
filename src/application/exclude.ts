@@ -3,7 +3,7 @@ import type { PropCraftSettings } from '../settings-model';
 function globToRegExp(glob: string): RegExp {
   let output = '^';
   for (let index = 0; index < glob.length; index += 1) {
-    const char = glob[index]!;
+    const char = glob[index];
     if (char === '*') {
       if (glob[index + 1] === '*') {
         output += '.*';

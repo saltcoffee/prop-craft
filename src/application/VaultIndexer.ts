@@ -148,7 +148,7 @@ function applyRemove(snapshot: VaultSnapshot, meta: FileMeta): void {
 export class VaultIndexer {
   private running = false;
   private pending = false;
-  private duplicateTimer: ReturnType<typeof setTimeout> | null = null;
+  private duplicateTimer: number | null = null;
 
   constructor(
     private readonly vault: VaultPort,
@@ -165,7 +165,7 @@ export class VaultIndexer {
     this.running = false;
     this.pending = false;
     if (this.duplicateTimer) {
-      clearTimeout(this.duplicateTimer);
+      window.clearTimeout(this.duplicateTimer);
       this.duplicateTimer = null;
     }
   }
@@ -188,12 +188,12 @@ export class VaultIndexer {
       const files = this.vault.getMarkdownFiles();
       for (let index = 0; index < files.length; index += 1) {
         if (!this.running) return;
-        const file = files[index]!;
+        const file = files[index];
         if (shouldExclude(file.path, settings)) continue;
         const meta = extractFileMeta(this.vault, file.path, typeMap);
         snapshot.files.set(meta.path, meta);
         applyAdd(snapshot, meta);
-        if (index % this.chunkSize === 0) await new Promise(resolve => setTimeout(resolve, 0));
+        if (index % this.chunkSize === 0) await new Promise(resolve => window.setTimeout(resolve, 0));
       }
       this.finalize(snapshot);
       this.store.set(snapshot);
@@ -254,8 +254,8 @@ export class VaultIndexer {
   private scheduleFinalize(): void {
     const snapshot = this.store.get();
     if (snapshot) this.finalize(snapshot);
-    if (this.duplicateTimer) clearTimeout(this.duplicateTimer);
-    this.duplicateTimer = setTimeout(() => {
+    if (this.duplicateTimer) window.clearTimeout(this.duplicateTimer);
+    this.duplicateTimer = window.setTimeout(() => {
       const latest = this.store.get();
       if (!latest) return;
       this.finalize(latest);

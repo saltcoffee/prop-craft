@@ -65,9 +65,9 @@ export function parseDate(raw: string, region: RegionFormat): DateParseResult {
 
   const dotted = /^(\d{1,4})[/.](\d{1,2})[/.](\d{1,4})$/.exec(text);
   if (dotted) {
-    const a = dotted[1]!;
+    const a = dotted[1];
     const b = Number(dotted[2]);
-    const c = dotted[3]!;
+    const c = dotted[3];
     if (a.length === 4) {
       const result = build(Number(a), b, Number(c));
       return result ?? { ok: false, raw };
@@ -84,7 +84,7 @@ export function parseDate(raw: string, region: RegionFormat): DateParseResult {
 
   const monthFirst = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(text);
   if (monthFirst) {
-    const month = MONTHS[monthFirst[1]!.toLowerCase()];
+    const month = MONTHS[monthFirst[1].toLowerCase()];
     if (month) {
       const result = build(Number(monthFirst[3]), month, Number(monthFirst[2]));
       return result ?? { ok: false, raw };
@@ -93,7 +93,7 @@ export function parseDate(raw: string, region: RegionFormat): DateParseResult {
 
   const dayFirst = /^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})$/.exec(text);
   if (dayFirst) {
-    const month = MONTHS[dayFirst[2]!.toLowerCase()];
+    const month = MONTHS[dayFirst[2].toLowerCase()];
     if (month) {
       const result = build(Number(dayFirst[3]), month, Number(dayFirst[1]));
       return result ?? { ok: false, raw };
