@@ -79,7 +79,19 @@
 .propcraft-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .propcraft-table tr.is-orphan td { background: var(--background-modifier-error-hover); }
 
-.propcraft-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.propcraft-table td.propcraft-actions { width: 1%; white-space: nowrap; vertical-align: middle; }
+.propcraft-actions > .propcraft-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  min-height: 28px;
+  margin: 0;
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+.propcraft-actions > .propcraft-link + .propcraft-link { margin-inline-start: 6px; }
 .propcraft-link { background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: inherit; }
 .propcraft-link:hover { text-decoration: underline; }
 .propcraft-link.mod-danger { color: var(--text-error); }
