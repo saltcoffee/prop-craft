@@ -125,10 +125,11 @@ export default class PropCraftPlugin extends Plugin {
   }
 
   async executePlan(plan: ChangePlan, onProgress?: (done: number, total: number) => void): Promise<ExecutionResult> {
-    await this.applyTypeMigration(plan);
     this.abortController = new AbortController();
     try {
-      return await this.executor.execute(plan, { signal: this.abortController.signal, onProgress });
+      const result = await this.executor.execute(plan, { signal: this.abortController.signal, onProgress });
+      if (!result.cancelled && result.failed.length === 0 && result.succeeded.length > 0) await this.applyTypeMigration(plan);
+      return result;
     } finally {
       this.abortController = null;
     }

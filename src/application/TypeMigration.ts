@@ -2,6 +2,14 @@ import type { VaultPort } from '../ports/VaultPort';
 
 const TYPES_FILE = 'types.json';
 
+function parseTypesFile(raw: string): { types: Record<string, unknown>; [key: string]: unknown } | null {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const types = (parsed as Record<string, unknown>).types;
+  if (!types || typeof types !== 'object' || Array.isArray(types)) return null;
+  return parsed as { types: Record<string, unknown>; [key: string]: unknown };
+}
+
 export class TypeMigration {
   private cached = new Map<string, string>();
 
@@ -15,9 +23,9 @@ export class TypeMigration {
         this.cached = new Map();
         return this.cached;
       }
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const parsed = parseTypesFile(raw);
       const map = new Map<string, string>();
-      for (const [key, value] of Object.entries(parsed)) {
+      for (const [key, value] of Object.entries(parsed?.types ?? {})) {
         if (typeof value === 'string') map.set(key, value);
       }
       this.cached = map;
@@ -36,6 +44,9 @@ export class TypeMigration {
   }
 
   async rename(oldKey: string, newKey: string): Promise<void> {
+    oldKey = oldKey.toLowerCase();
+    newKey = newKey.toLowerCase();
+    if (oldKey === newKey) return;
     await this.mutate(types => {
       if (types[oldKey] === undefined) return false;
       types[newKey] = types[oldKey];
@@ -45,6 +56,9 @@ export class TypeMigration {
   }
 
   async merge(from: string, to: string): Promise<void> {
+    from = from.toLowerCase();
+    to = to.toLowerCase();
+    if (from === to) return;
     await this.mutate(types => {
       if (types[from] === undefined) return false;
       if (types[to] === undefined) types[to] = types[from];
@@ -56,9 +70,9 @@ export class TypeMigration {
   private async mutate(change: (types: Record<string, unknown>) => boolean): Promise<void> {
     try {
       const raw = await this.vault.readConfigFile(TYPES_FILE);
-      const types = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      if (!change(types)) return;
-      await this.vault.writeConfigFile(TYPES_FILE, `${JSON.stringify(types, null, 2)}\n`);
+      const data = raw ? parseTypesFile(raw) : null;
+      if (!data || !change(data.types)) return;
+      await this.vault.writeConfigFile(TYPES_FILE, `${JSON.stringify(data, null, 2)}\n`);
       await this.load();
     } catch {
       // Type migration is best-effort; failure must not block the main operation.

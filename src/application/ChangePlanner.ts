@@ -5,6 +5,7 @@ import {
   planAddProperty, planDeleteProperty, planMergeProperty, planMergeTag, planNormalizeDate, planRenameProperty,
 } from '../domain/plan';
 import { RESERVED_KEYS } from '../constants';
+import { tagWithHash } from '../domain/normalize';
 import type { PropCraftSettings } from '../settings-model';
 import type { VaultPort } from '../ports/VaultPort';
 import type { SnapshotStore } from './SnapshotStore';
@@ -69,6 +70,8 @@ export class ChangePlanner {
   }
 
   planMergeTag(from: string, to: string): ChangePlan {
+    from = tagWithHash(from);
+    to = tagWithHash(to);
     const changes: FileChange[] = [];
     for (const file of this.files()) {
       const change = planMergeTag(file, from, to);
@@ -78,6 +81,8 @@ export class ChangePlanner {
   }
 
   planRenameTag(from: string, to: string): ChangePlan {
+    from = tagWithHash(from);
+    to = tagWithHash(to);
     const changes: FileChange[] = [];
     for (const file of this.files()) {
       const change = planMergeTag(file, from, to);

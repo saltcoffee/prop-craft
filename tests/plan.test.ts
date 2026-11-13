@@ -71,6 +71,47 @@ describe('date planning', () => {
 });
 
 describe('tag planning', () => {
+  it.each([
+    ['#Book', '#book'],
+    ['#foo_bar', '#foo-bar'],
+  ])('rewrites duplicate spellings %s to %s', (from, to) => {
+    const tags: TagOccurrence[] = [{ tag: from, normalized: '', origin: 'both', positions: [{ start: 0, end: from.length }] }];
+    const change = planRenameTag(meta('a.md', { tags: [from.slice(1)] }, tags), from, to)!;
+    expect(change.afterFrontmatter.tags).toEqual([to.slice(1)]);
+    expect(change.edits[0]!.textOps![0]!.replacement).toBe(to);
+  });
+
+  it('preserves unrelated tag spellings, duplicates, and non-string entries', () => {
+    const change = planRenameTag(meta('a.md', { tags: ['old', 'project_alpha', 'project-alpha', 'other', 'other', 7] }), '#old', '#new')!;
+    expect(change.afterFrontmatter.tags).toEqual(['new', 'project_alpha', 'project-alpha', 'other', 'other', 7]);
+  });
+
+  it('does not rename an unselected separator or case variant', () => {
+    const change = planRenameTag(meta('a.md', { tags: ['old_tag', 'old-tag', 'Old_tag'] }), '#old_tag', '#new')!;
+    expect(change.afterFrontmatter.tags).toEqual(['new', 'old-tag', 'Old_tag']);
+  });
+
+  it('only deduplicates the merge destination', () => {
+    const change = planRenameTag(meta('a.md', { tags: ['old', '#new', 'new', 'other', 'other'] }), '#old', '#new')!;
+    expect(change.afterFrontmatter.tags).toEqual(['new', 'other', 'other']);
+  });
+
+  it('preserves unrelated separator variants in a comma-separated tags value', () => {
+    const change = planRenameTag(meta('a.md', { tags: 'old, project_alpha, project-alpha' }), '#old', '#new')!;
+    expect(change.afterFrontmatter.tags).toBe('new, project_alpha, project-alpha');
+  });
+
+  it('adds the hash prefix to a target entered without one', () => {
+    const tags: TagOccurrence[] = [{ tag: '#old', normalized: 'old', origin: 'both', positions: [{ start: 0, end: 4 }] }];
+    const change = planRenameTag(meta('a.md', { tags: ['old'] }, tags), '#old', 'new')!;
+    expect(change.edits[0]!.textOps![0]!.replacement).toBe('#new');
+    expect(change.afterFrontmatter.tags).toEqual(['new']);
+  });
+
+  it.each(['', '#', 'new tag', '1234', '#new#tag', 'new:tag'])('does not plan an invalid tag target: %s', target => {
+    expect(planRenameTag(meta('a.md', { tags: ['old'] }), '#old', target)).toBeNull();
+  });
+
   it('rewrites inline positions and frontmatter tags, content edit first', () => {
     const tags: TagOccurrence[] = [
       { tag: '#阅读', normalized: '阅读', origin: 'body', positions: [{ start: 10, end: 13 }] },

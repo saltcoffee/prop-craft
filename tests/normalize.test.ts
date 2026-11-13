@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { differsOnlyByCase, differsOnlyBySeparator, normalizeKey, normalizeTag, singularize } from '../src/domain/normalize';
+import { differsOnlyByCase, differsOnlyBySeparator, isValidTag, normalizeKey, normalizeTag, singularize } from '../src/domain/normalize';
 
 describe('normalizeTag', () => {
   it('lowercases and strips #', () => {
@@ -16,6 +16,15 @@ describe('normalizeKey', () => {
   it('case-folds only', () => {
     expect(normalizeKey('Author')).toBe('author');
     expect(normalizeKey(' 作者 ')).toBe('作者');
+  });
+});
+
+describe('tag input', () => {
+  it.each(['#reading', 'my_tag', '项目/计划-1', '📚', 'y1984'])('accepts valid tag names: %s', tag => {
+    expect(isValidTag(tag)).toBe(true);
+  });
+  it.each(['', '#', 'two words', '#1984', 'a#b', 'a:b'])('rejects invalid tag names: %s', tag => {
+    expect(isValidTag(tag)).toBe(false);
   });
 });
 
