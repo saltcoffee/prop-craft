@@ -43,7 +43,7 @@ export class ObsidianVaultAdapter implements VaultPort {
   async readText(path: string): Promise<string> {
     const file = this.file(path);
     if (!file) throw new Error(`文件不存在：${path}`);
-    return this.app.vault.cachedRead(file);
+    return this.app.vault.read(file);
   }
 
   async processFrontMatter(path: string, fn: (fm: Record<string, unknown>) => void): Promise<void> {

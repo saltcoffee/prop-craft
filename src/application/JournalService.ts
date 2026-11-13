@@ -27,6 +27,7 @@ export class JournalService {
       path: change.path,
       beforeHash: beforeHashes.get(change.path) ?? '',
       beforeContent: beforeContents.get(change.path) ?? '',
+      state: 'pending',
     }));
     const transaction: JournalTransaction = {
       transactionId: newTransactionId(),
@@ -41,7 +42,15 @@ export class JournalService {
 
   recordAfter(transaction: JournalTransaction, path: string, afterHash: string): void {
     const entry = transaction.entries.find(candidate => candidate.path === path);
-    if (entry) entry.afterHash = afterHash;
+    if (entry) {
+      entry.afterHash = afterHash;
+      entry.state = 'applied';
+    }
+  }
+
+  recordNotApplied(transaction: JournalTransaction, path: string): void {
+    const entry = transaction.entries.find(candidate => candidate.path === path);
+    if (entry) entry.state = 'not-applied';
   }
 
   async finish(transaction: JournalTransaction, status: JournalTransaction['status']): Promise<void> {

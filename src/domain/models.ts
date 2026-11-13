@@ -125,6 +125,7 @@ export interface EditInstruction {
 
 export interface FileChange {
   path: string;
+  expectedMtime: number;
   beforeFrontmatter: Record<string, unknown>;
   afterFrontmatter: Record<string, unknown>;
   edits: EditInstruction[];
@@ -171,6 +172,8 @@ export interface JournalEntry {
   beforeHash: string;
   beforeContent: string;
   afterHash?: string;
+  /** Absent on journals created before per-file execution states were recorded. */
+  state?: 'pending' | 'applied' | 'not-applied' | 'restored';
 }
 
 export interface JournalTransaction {

@@ -1,7 +1,7 @@
 import type {
   ConflictStrategy, FileChange, FileMeta, MergeStrategy, PropertyValueType, RegionFormat,
 } from './models';
-import { normalizeTag, stripHash } from './normalize';
+import { isValidTag, stripHash, tagWithHash } from './normalize';
 import { normalizeDateValue } from './date';
 
 const hasOwn = (object: Record<string, unknown>, key: string): boolean =>
@@ -32,20 +32,18 @@ function tagKeyOf(fm: Record<string, unknown>): 'tags' | 'tag' | null {
 }
 
 function rewriteTagEntry(entry: string, from: string, to: string): string {
-  if (normalizeTag(entry) !== normalizeTag(from)) return entry;
+  if (stripHash(entry) !== stripHash(from)) return entry;
   return entry.startsWith('#') ? to : stripHash(to);
 }
 
-function dedupePreserveOrder(values: string[]): string[] {
-  const seen = new Set<string>();
-  const output: string[] = [];
-  for (const value of values) {
-    const key = normalizeTag(value);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(value);
-  }
-  return output;
+function dedupeTarget(values: unknown[], target: string): unknown[] {
+  let seen = false;
+  return values.filter(value => {
+    if (typeof value !== 'string' || stripHash(value) !== stripHash(target)) return true;
+    if (seen) return false;
+    seen = true;
+    return true;
+  });
 }
 
 /** Rewrite a frontmatter tags value in place; returns null when nothing matched. */
@@ -64,8 +62,7 @@ export function rewriteFrontmatterTag(
       return next;
     });
     if (!changed) return null;
-    const strings = mapped.filter((entry): entry is string => typeof entry === 'string');
-    return { key, value: dedupePreserveOrder(strings) };
+    return { key, value: dedupeTarget(mapped, to) };
   }
   if (typeof raw === 'string') {
     const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
@@ -76,13 +73,15 @@ export function rewriteFrontmatterTag(
       return next;
     });
     if (!changed) return null;
-    return { key, value: dedupePreserveOrder(mapped).join(', ') };
+    return { key, value: dedupeTarget(mapped, to).join(', ') };
   }
   return null;
 }
 
 export function planRenameTag(file: FileMeta, from: string, to: string): FileChange | null {
-  if (normalizeTag(from) === normalizeTag(to)) return null;
+  from = tagWithHash(from);
+  to = tagWithHash(to);
+  if (!isValidTag(to) || from === to) return null;
   const beforeFrontmatter = cloneFrontmatter(file);
   const afterFrontmatter = cloneFrontmatter(file);
   const edits: FileChange['edits'] = [];
@@ -104,7 +103,7 @@ export function planRenameTag(file: FileMeta, from: string, to: string): FileCha
   if (edits.length === 0) return null;
   // Content edits must come before frontmatter edits: frontmatter serialization can shift body offsets.
   edits.sort((a, b) => (a.target === 'content' ? -1 : 1) - (b.target === 'content' ? -1 : 1));
-  return { path: file.path, beforeFrontmatter, afterFrontmatter, edits };
+  return { path: file.path, expectedMtime: file.mtime, beforeFrontmatter, afterFrontmatter, edits };
 }
 
 export const planMergeTag = planRenameTag;
@@ -142,6 +141,7 @@ export function planRenameProperty(file: FileMeta, from: string, to: string): Fi
   delete afterFrontmatter[from];
   return {
     path: file.path,
+    expectedMtime: file.mtime,
     beforeFrontmatter,
     afterFrontmatter,
     edits: [{ target: 'frontmatter', fmOp: { set: { [to]: fm[from] }, delete: [from] } }],
@@ -161,6 +161,7 @@ export function planMergeProperty(file: FileMeta, from: string, to: string, stra
   delete afterFrontmatter[from];
   return {
     path: file.path,
+    expectedMtime: file.mtime,
     beforeFrontmatter,
     afterFrontmatter,
     edits: [{ target: 'frontmatter', fmOp: { set: { [to]: resolved.value }, delete: [from] } }],
@@ -175,6 +176,7 @@ export function planDeleteProperty(file: FileMeta, key: string): FileChange | nu
   delete afterFrontmatter[key];
   return {
     path: file.path,
+    expectedMtime: file.mtime,
     beforeFrontmatter,
     afterFrontmatter,
     edits: [{ target: 'frontmatter', fmOp: { delete: [key] } }],
@@ -206,6 +208,7 @@ export function planAddProperty(
   }
   return {
     path: file.path,
+    expectedMtime: file.mtime,
     beforeFrontmatter,
     afterFrontmatter,
     edits: [{ target: 'frontmatter', fmOp: { set: { [key]: afterFrontmatter[key] } } }],
@@ -224,6 +227,7 @@ export function planNormalizeDate(
   afterFrontmatter[key] = parsed.iso;
   return {
     path: file.path,
+    expectedMtime: file.mtime,
     beforeFrontmatter,
     afterFrontmatter,
     edits: [{ target: 'frontmatter', fmOp: { set: { [key]: parsed.iso } } }],

@@ -70,7 +70,9 @@ export function App({ plugin }: { plugin: PropCraftPlugin }) {
   const undo = async (transactionId: string): Promise<void> => {
     try {
       const undoResult = await plugin.undo(transactionId);
-      plugin.notify(t('notice.undone', { count: undoResult.restored.length }));
+      plugin.notify(t(undoResult.skipped.length > 0 ? 'notice.undoPartial' : 'notice.undone', {
+        count: undoResult.restored.length, skipped: undoResult.skipped.length,
+      }));
       setResult(null);
     } catch (error) {
       plugin.notify(error instanceof Error ? error.message : String(error));

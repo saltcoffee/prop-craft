@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { DuplicateGroup, DuplicateReason, TagStat } from '../../domain/models';
 import type { TextKey } from '../../i18n';
+import { isValidTag, tagWithHash } from '../../domain/normalize';
 import type { PageProps } from '../types';
 
 const REASON_LABEL: Record<DuplicateReason, TextKey> = {
@@ -25,6 +26,11 @@ export function TagGrid({ snapshot, t, plugin, onPreview }: PageProps) {
   if (!snapshot) return <div class="propcraft-empty">{t('notice.indexing')}</div>;
 
   const merge = (from: string, to: string) => {
+    to = tagWithHash(to);
+    if (!isValidTag(to)) {
+      plugin.notify(t('tags.invalidTarget'));
+      return;
+    }
     if (from === to) return;
     onPreview(plugin.planner.planMergeTag(from, to));
   };

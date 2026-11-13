@@ -63,6 +63,7 @@ export const zhCN: Strings = {
   'tags.none': '没有匹配的标签。',
   'tags.mergeFrom': '合并来源',
   'tags.mergeTo': '合并到',
+  'tags.invalidTarget': '请输入不含空格的有效标签，且至少包含一个非数字字符。',
 
   'preview.title': '变更预览',
   'preview.affected': '将影响 {count} 篇笔记',
@@ -142,6 +143,7 @@ export const zhCN: Strings = {
   'notice.applied': 'PropCraft 已更新 {count} 篇笔记。',
   'notice.failed': 'PropCraft 有 {count} 篇笔记未能更新。',
   'notice.undone': '已恢复 {count} 篇笔记。',
+  'notice.undoPartial': '已恢复 {count} 篇笔记，跳过 {skipped} 篇；可在历史中重试。',
   'notice.nothingToApply': '没有需要应用的变更。',
   'notice.reserved': '「{key}」是 Obsidian 保留字段，无法修改。',
   'notice.indexed': '索引已重建。',

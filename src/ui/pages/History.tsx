@@ -34,7 +34,11 @@ export function History({ plugin, t }: PageProps) {
   const undo = async (transactionId: string) => {
     try {
       const result = await plugin.undo(transactionId);
-      plugin.notify(t('notice.undone', { count: result.restored.length }));
+      plugin.notify(t(result.skipped.length > 0 ? 'notice.undoPartial' : 'notice.undone', {
+        count: result.restored.length, skipped: result.skipped.length,
+      }));
+    } catch (error) {
+      plugin.notify(error instanceof Error ? error.message : String(error));
     } finally {
       load();
     }

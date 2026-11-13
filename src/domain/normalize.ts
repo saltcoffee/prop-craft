@@ -9,6 +9,11 @@ export function tagWithHash(normalized: string): string {
   return `#${stripHash(normalized)}`;
 }
 
+export function isValidTag(raw: string): boolean {
+  const tag = stripHash(raw);
+  return tag.length > 0 && !/[\s#.,;:!?()[\]{}<>\\`"'=+*&^%$@|]/u.test(tag) && !/^\p{N}+$/u.test(tag);
+}
+
 /**
  * Normalize a tag for aggregation and comparison:
  * remove '#', lowercase, fold whitespace/underscore into '-', collapse repeats.

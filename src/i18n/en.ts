@@ -61,6 +61,7 @@ export const en = {
   'tags.none': 'No tags match.',
   'tags.mergeFrom': 'Merge from',
   'tags.mergeTo': 'Merge into',
+  'tags.invalidTarget': 'Enter a valid tag without spaces; it must contain a non-numerical character.',
 
   'preview.title': 'Preview changes',
   'preview.affected': '{count} note(s) will change',
@@ -140,6 +141,7 @@ export const en = {
   'notice.applied': 'PropCraft updated {count} note(s).',
   'notice.failed': 'PropCraft could not update {count} note(s).',
   'notice.undone': 'Restored {count} note(s).',
+  'notice.undoPartial': 'Restored {count} note(s); {skipped} skipped. You can retry from History.',
   'notice.nothingToApply': 'Nothing to apply.',
   'notice.reserved': '“{key}” is a reserved Obsidian field and cannot be changed.',
   'notice.indexed': 'Index rebuilt.',

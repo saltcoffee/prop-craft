@@ -33,7 +33,7 @@ function declaredType(typeMap: Map<string, string>, key: string): PropertyValueT
   const value = typeMap.get(key) ?? typeMap.get(key.toLowerCase());
   if (!value) return null;
   const map: Record<string, PropertyValueType> = {
-    text: 'text', number: 'number', checkbox: 'checkbox', date: 'date', datetime: 'datetime', list: 'list',
+    text: 'text', number: 'number', checkbox: 'checkbox', date: 'date', datetime: 'datetime', multitext: 'list', list: 'list',
   };
   return map[value] ?? null;
 }
