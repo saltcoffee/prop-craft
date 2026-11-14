@@ -33,3 +33,7 @@ export function shouldExclude(path: string, settings: PropCraftSettings): boolea
   }
   return false;
 }
+
+export function exclusionFingerprint(settings: PropCraftSettings): string {
+  return JSON.stringify([settings.excludeGlobs, settings.excludeTemplates, settings.templateFolder]);
+}

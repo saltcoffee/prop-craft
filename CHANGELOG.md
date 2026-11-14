@@ -2,6 +2,28 @@
 
 Notable changes to PropCraft, grouped by release.
 
+## 0.1.2 — 2026-11-14
+
+### Added
+
+- Shared note scope across property, tag and bulk actions: folders, AND tag/property conditions, note review and session-only manual exclusions.
+- Per-note preview selection, conflict decisions, filtered batch strategies, explicit ambiguous-date confirmation, and typed differences with body tag context.
+- Shared execution progress, cancellation, complete result lists, restricted retry previews and recovery previews with partial recovery tracking.
+- Versioned write-ahead recovery journals, interruption reconciliation, capacity checks before writing, and explicit removal of individual completed records.
+
+### Fixed
+
+- Bind changes to preview contents and compare the complete original inside one `Vault.process` callback. Body and frontmatter changes now write together.
+- Keep unresolved destructive conflicts skipped; use exact case-insensitive tag identity without folding separators.
+- Preserve later edits during undo, retain legacy history safely, and make corrupt or unsupported records visible and read-only.
+- Retain source property type declarations, only add missing target declarations, check target compatibility, and recover type changes by key while preserving other declarations.
+
+### Notes
+
+- YAML comments, quoting and layout can be reformatted. Ordinary note body text is preserved except for selected tags.
+- History is no longer automatically pruned. New writes stop when the configured count or capacity limit is reached.
+- New V2 recovery records require PropCraft 0.1.2 or later; legacy records without an after-content hash cannot authorize restoration.
+
 ## 0.1.1 — 2026-11-12
 
 ### Fixed

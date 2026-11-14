@@ -11,7 +11,7 @@ export function tagWithHash(normalized: string): string {
 
 export function isValidTag(raw: string): boolean {
   const tag = stripHash(raw);
-  return tag.length > 0 && !/[\s#.,;:!?()[\]{}<>\\`"'=+*&^%$@|]/u.test(tag) && !/^\p{N}+$/u.test(tag);
+  return tag.length > 0 && /^[\p{L}\p{M}\p{N}\p{S}_/-]+$/u.test(tag) && !/[\s#.,;:!?()[\]{}<>\\`"'=+*&^%$@|]/u.test(tag) && !/^\p{N}+$/u.test(tag);
 }
 
 /**
@@ -48,4 +48,9 @@ export function differsOnlyByCase(a: string, b: string): boolean {
 export function differsOnlyBySeparator(a: string, b: string): boolean {
   const squash = (value: string) => value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
   return a !== b && squash(a) === squash(b);
+}
+
+/** Exact tag identity for scope and writes; fuzzy normalization is only a suggestion. */
+export function tagIdentity(raw: string): string {
+  return stripHash(raw).toLowerCase();
 }

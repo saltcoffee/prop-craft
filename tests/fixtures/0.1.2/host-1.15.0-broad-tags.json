@@ -1,0 +1,185 @@
+{
+  "source": "<div>\n#insideblock\n</div>\n\n<script>\n#script\n</script>\n\n| Col | Tag |\n| --- | --- |\n| X | #table |\n\n[^footnote]: #definition\n\nRef[^footnote] #after\n\n[reference]: https://example.org/#url \"#title\"\n[#label][reference]\n\n> [!NOTE]\n> #callout **#bold**\n\n #space\n\t#tab\n\n<https://x/#auto> <mail#at@example.com>\n\nfoo #tag.bar #tag:colon #a+b #a=b #a~b #a^b #a|b #a$b #a®b #a™b\n\n(#round) [#square] {#brace} '#single' \"#double\" :#colon ;#semi ,#comma .#period !#bang ?#question /#slash \\#escaped\n\n**#strong** ***#triple*** __#doubleunderline__ ~~#strike~~\n\n\\\\#twoescapes \\#threeescapes\n\n[[Note|#alias]] ![[Note#section]] [#tag](https://x/ \"title\") ![#alt](https://x/)\n\nMath $ #inline $\n\n$$\n#mathblock\n$$\n\n\n#👨‍👩‍👦 #café #日本語 #123 #12/34 #--- #/ #_ #£ #− #🙂/a\n",
+  "actual": [
+    {
+      "tag": "#table",
+      "start": 89,
+      "end": 95
+    },
+    {
+      "tag": "#definition",
+      "start": 112,
+      "end": 123
+    },
+    {
+      "tag": "#after",
+      "start": 140,
+      "end": 146
+    },
+    {
+      "tag": "#label",
+      "start": 196,
+      "end": 202
+    },
+    {
+      "tag": "#callout",
+      "start": 228,
+      "end": 236
+    },
+    {
+      "tag": "#bold",
+      "start": 239,
+      "end": 244
+    },
+    {
+      "tag": "#space",
+      "start": 249,
+      "end": 255
+    },
+    {
+      "tag": "#tab",
+      "start": 257,
+      "end": 261
+    },
+    {
+      "tag": "#tag",
+      "start": 308,
+      "end": 312
+    },
+    {
+      "tag": "#tag",
+      "start": 317,
+      "end": 321
+    },
+    {
+      "tag": "#a",
+      "start": 328,
+      "end": 330
+    },
+    {
+      "tag": "#a",
+      "start": 333,
+      "end": 335
+    },
+    {
+      "tag": "#a",
+      "start": 338,
+      "end": 340
+    },
+    {
+      "tag": "#a",
+      "start": 343,
+      "end": 345
+    },
+    {
+      "tag": "#a",
+      "start": 348,
+      "end": 350
+    },
+    {
+      "tag": "#a",
+      "start": 353,
+      "end": 355
+    },
+    {
+      "tag": "#a®b",
+      "start": 358,
+      "end": 362
+    },
+    {
+      "tag": "#a™b",
+      "start": 363,
+      "end": 367
+    },
+    {
+      "tag": "#square",
+      "start": 379,
+      "end": 386
+    },
+    {
+      "tag": "#strong",
+      "start": 488,
+      "end": 495
+    },
+    {
+      "tag": "#triple",
+      "start": 501,
+      "end": 508
+    },
+    {
+      "tag": "#doubleunderline",
+      "start": 514,
+      "end": 530
+    },
+    {
+      "tag": "#strike",
+      "start": 535,
+      "end": 542
+    },
+    {
+      "tag": "#twoescapes",
+      "start": 548,
+      "end": 559
+    },
+    {
+      "tag": "#tag",
+      "start": 611,
+      "end": 615
+    },
+    {
+      "tag": "#inline",
+      "start": 665,
+      "end": 672
+    },
+    {
+      "tag": "#👨",
+      "start": 695,
+      "end": 698
+    },
+    {
+      "tag": "#café",
+      "start": 705,
+      "end": 710
+    },
+    {
+      "tag": "#日本語",
+      "start": 711,
+      "end": 715
+    },
+    {
+      "tag": "#12/34",
+      "start": 721,
+      "end": 727
+    },
+    {
+      "tag": "#---",
+      "start": 728,
+      "end": 732
+    },
+    {
+      "tag": "#/",
+      "start": 733,
+      "end": 735
+    },
+    {
+      "tag": "#_",
+      "start": 736,
+      "end": 738
+    },
+    {
+      "tag": "#£",
+      "start": 739,
+      "end": 741
+    },
+    {
+      "tag": "#−",
+      "start": 742,
+      "end": 744
+    },
+    {
+      "tag": "#🙂/a",
+      "start": 745,
+      "end": 750
+    }
+  ]
+}

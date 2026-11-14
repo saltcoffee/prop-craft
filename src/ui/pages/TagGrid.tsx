@@ -18,21 +18,26 @@ function originLabel(t: PageProps['t'], origin: TagStat['origin']): string {
   return t('tags.origin.both');
 }
 
-export function TagGrid({ snapshot, t, plugin, onPreview }: PageProps) {
+export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: PageProps) {
   const [search, setSearch] = useState('');
   const [duplicatesOnly, setDuplicatesOnly] = useState(false);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
 
   if (!snapshot) return <div class="propcraft-empty">{t('notice.indexing')}</div>;
 
-  const merge = (from: string, to: string) => {
+  const merge = (from: string, to: string, kind: 'mergeTag' | 'renameTag' = 'mergeTag') => {
     to = tagWithHash(to);
     if (!isValidTag(to)) {
       plugin.notify(t('tags.invalidTarget'));
       return;
     }
     if (from === to) return;
-    onPreview(plugin.planner.planMergeTag(from, to));
+    if (canPreview) void requestPreview({ kind, from, to });
+  };
+
+  const promptRename = async (from: string) => {
+    const target = await plugin.prompt(t('common.rename'), from);
+    if (target && target !== from) merge(from, target, 'renameTag');
   };
 
   const promptMerge = async (from: string) => {
@@ -84,6 +89,7 @@ export function TagGrid({ snapshot, t, plugin, onPreview }: PageProps) {
   return (
     <div class="propcraft-page">
       <h2 class="propcraft-page-title">{t('tags.title')}</h2>
+      <div class="propcraft-muted">{t('scope.current')} {t('preview.exactTag')}</div>
       <div class="propcraft-toolbar">
         <input class="propcraft-input" placeholder={t('tags.search')} value={search} onInput={event => setSearch((event.target as HTMLInputElement).value)} />
         <label class="propcraft-check">
@@ -120,7 +126,8 @@ export function TagGrid({ snapshot, t, plugin, onPreview }: PageProps) {
                   <td class="num">{stat.fileCount}</td>
                   <td>{originLabel(t, stat.origin)}</td>
                   <td class="propcraft-actions">
-                    <button class="propcraft-link" onClick={() => void promptMerge(stat.tag)}>{t('tags.mergeTo')}</button>
+                    <button class="propcraft-link" disabled={!canPreview} onClick={() => void promptRename(stat.tag)}>{t('common.rename')}</button>
+                    <button class="propcraft-link" disabled={!canPreview} onClick={() => void promptMerge(stat.tag)}>{t('tags.mergeTo')}</button>
                   </td>
                 </tr>
               ))}

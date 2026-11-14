@@ -28,6 +28,8 @@ export interface PropertyValue {
 export interface FileMeta {
   path: string;
   mtime: number;
+  metadataStatus?: 'ready' | 'unavailable';
+  tagsComplete?: boolean;
   hasValidFrontmatter: boolean;
   frontmatterParseError: boolean;
   /** Raw frontmatter object (excluding reserved keys handled separately). */
@@ -79,6 +81,8 @@ export interface SnapshotTotals {
 }
 
 export interface VaultSnapshot {
+  revision: number;
+  folders: string[];
   generatedAt: number;
   files: Map<string, FileMeta>;
   properties: Map<string, PropertyStat>;
@@ -91,24 +95,14 @@ export type MergeStrategy = 'keep-target' | 'keep-source' | 'merge-list' | 'skip
 export type ConflictStrategy = 'skip' | 'overwrite' | 'append';
 export type RegionFormat = 'MDY' | 'DMY' | 'YMD';
 
-export type Scope =
-  | { kind: 'all' }
-  | { kind: 'folder'; path: string; includeSubfolders: boolean }
-  | { kind: 'files'; paths: string[] };
-
 export type ChangeOperation =
   | { kind: 'renameProperty'; from: string; to: string }
-  | { kind: 'mergeProperty'; from: string; to: string; strategy: MergeStrategy }
+  | { kind: 'mergeProperty'; from: string; to: string }
   | { kind: 'deleteProperty'; key: string }
   | { kind: 'renameTag'; from: string; to: string }
   | { kind: 'mergeTag'; from: string; to: string }
   | { kind: 'addProperty'; key: string; value: unknown; valueType: PropertyValueType; onConflict: ConflictStrategy }
   | { kind: 'normalizeDate'; key: string; target: 'date' | 'datetime'; regionFormat: RegionFormat };
-
-export interface FmOp {
-  set?: Record<string, unknown>;
-  delete?: string[];
-}
 
 export interface TextOp {
   start: number;
@@ -117,46 +111,11 @@ export interface TextOp {
   replacement: string;
 }
 
-export interface EditInstruction {
-  target: 'frontmatter' | 'content';
-  fmOp?: FmOp;
-  textOps?: TextOp[];
-}
-
 export interface FileChange {
   path: string;
-  expectedMtime: number;
   beforeFrontmatter: Record<string, unknown>;
   afterFrontmatter: Record<string, unknown>;
-  edits: EditInstruction[];
-  skipped?: boolean;
-  skipReason?: string;
-  conflict?: { reason: string; resolvedBy: MergeStrategy | ConflictStrategy };
-}
-
-export interface ChangeSummary {
-  totalFiles: number;
-  willChange: number;
-  willSkip: number;
-  conflicts: number;
-  byType: Record<string, number>;
-}
-
-export interface ChangePlan {
-  id: string;
-  operation: ChangeOperation;
-  createdAt: number;
-  fileChanges: FileChange[];
-  summary: ChangeSummary;
-}
-
-export interface ExecutionResult {
-  transactionId: string;
-  succeeded: string[];
-  failed: Array<{ path: string; error: string }>;
-  skipped: string[];
-  cancelled: boolean;
-  durationMs: number;
+  textOps: TextOp[];
 }
 
 export interface DiffHunk {
@@ -165,31 +124,4 @@ export interface DiffHunk {
   before?: string;
   after?: string;
   kind: 'del' | 'add' | 'ctx';
-}
-
-export interface JournalEntry {
-  path: string;
-  beforeHash: string;
-  beforeContent: string;
-  afterHash?: string;
-  /** Absent on journals created before per-file execution states were recorded. */
-  state?: 'pending' | 'applied' | 'not-applied' | 'restored';
-}
-
-export interface JournalTransaction {
-  transactionId: string;
-  createdAt: number;
-  operation: ChangeOperation;
-  entries: JournalEntry[];
-  status: 'in-progress' | 'committed' | 'partial' | 'rolled-back';
-}
-
-export interface JournalMeta {
-  transactionId: string;
-  createdAt: number;
-  operation: ChangeOperation;
-  status: JournalTransaction['status'];
-  fileCount: number;
-  /** Approximate stored size in bytes, used for journal pruning. */
-  bytes?: number;
 }

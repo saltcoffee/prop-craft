@@ -1,81 +1,74 @@
 import type { VaultPort } from '../ports/VaultPort';
-
-const TYPES_FILE = 'types.json';
-
-function parseTypesFile(raw: string): { types: Record<string, unknown>; [key: string]: unknown } | null {
-  const parsed = JSON.parse(raw) as unknown;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-  const types = (parsed as Record<string, unknown>).types;
-  if (!types || typeof types !== 'object' || Array.isArray(types)) return null;
-  return parsed as { types: Record<string, unknown>; [key: string]: unknown };
-}
+import type { TypeConfigCodecPort } from '../ports/TypeConfigCodecPort';
+import type { ChangeOperation } from '../domain/models';
+import { isKnownPropertyType, type TypeDeclarations, type TypePatch } from '../domain/type-config';
+import type { TypeSummary } from '../domain/preview';
+import { OperationError } from '../domain/errors';
+import { sha256Hex } from '../infrastructure/hash';
 
 export class TypeMigration {
   private cached = new Map<string, string>();
-
-  constructor(private readonly vault: VaultPort) {}
-
-  /** Load Obsidian's property types (types.json). Missing or invalid files yield an empty map. */
-  async load(): Promise<Map<string, string>> {
+  constructor(private readonly vault: VaultPort, private readonly codec: TypeConfigCodecPort) {}
+  async loadDeclarations(): Promise<TypeDeclarations> {
     try {
-      const raw = await this.vault.readConfigFile(TYPES_FILE);
-      if (!raw) {
-        this.cached = new Map();
-        return this.cached;
-      }
-      const parsed = parseTypesFile(raw);
-      const map = new Map<string, string>();
-      for (const [key, value] of Object.entries(parsed?.types ?? {})) {
-        if (typeof value === 'string') map.set(key, value);
-      }
-      this.cached = map;
-    } catch {
-      this.cached = new Map();
-    }
-    return this.cached;
+      const raw = await this.vault.readConfigFile('types.json');
+      if (raw === null) { this.cached = new Map(); return { kind: 'ready', raw, declarations: this.cached }; }
+      const parsed = this.codec.readDeclarations(raw);
+      if (!parsed.ok) { this.cached = new Map(); return { kind: 'unsupported', raw }; }
+      this.cached = new Map(parsed.value);
+      return { kind: 'ready', raw, declarations: new Map(parsed.value) };
+    } catch { this.cached = new Map(); return { kind: 'unsupported' }; }
   }
-
-  getCached(): Map<string, string> {
-    return this.cached;
+  async load(): Promise<Map<string, string>> { await this.loadDeclarations(); return this.getCached(); }
+  getCached(): Map<string, string> { return new Map(this.cached); }
+  async plan(operation: ChangeOperation): Promise<{ snapshot: TypeDeclarations; summary: TypeSummary; patch?: TypePatch; targetType?: string; baseline?: string | null }> {
+    if (operation.kind === 'renameTag' || operation.kind === 'mergeTag' || operation.kind === 'deleteProperty') return { snapshot: { kind: 'ready', raw: null, declarations: new Map() }, summary: { kind: 'none' } };
+    const snapshot = await this.loadDeclarations();
+    if (snapshot.kind === 'unsupported') return { snapshot, summary: { kind: 'unsupported' } };
+    const targetKey = ('to' in operation ? operation.to : operation.key).toLowerCase();
+    const sourceKey = 'from' in operation ? operation.from.toLowerCase() : undefined;
+    const existing = snapshot.declarations.get(targetKey);
+    if (existing) return { snapshot, targetType: existing, baseline: snapshot.raw, summary: { kind: 'existing', targetKey, sourceKey, type: existing } };
+    const sourceType = sourceKey ? snapshot.declarations.get(sourceKey) : undefined;
+    if (!sourceKey || !sourceType || snapshot.raw === null) return { snapshot, baseline: snapshot.raw, summary: { kind: 'none', targetKey, sourceKey } };
+    if (!isKnownPropertyType(sourceType)) return { snapshot: { kind: 'unsupported' }, summary: { kind: 'unsupported' } };
+    const changed = this.codec.addTarget(snapshot.raw, targetKey, sourceType);
+    if (!changed.ok) return { snapshot: { kind: 'unsupported' }, summary: { kind: 'unsupported' } };
+    const patch: TypePatch = { sourceKey, targetKey, targetAfter: sourceType, configBeforeContent: snapshot.raw, configBeforeHash: await sha256Hex(snapshot.raw), configAfterContent: changed.value, configAfterHash: await sha256Hex(changed.value) };
+    return { snapshot, patch, targetType: sourceType, baseline: snapshot.raw, summary: { kind: 'add', targetKey, sourceKey, type: sourceType } };
   }
-
-  getPropertyType(key: string): string | null {
-    return this.cached.get(key) ?? null;
+  async verifyBaseline(raw: string | null | undefined): Promise<void> {
+    if (raw !== undefined && await this.vault.readConfigFile('types.json') !== raw) throw new OperationError('type-config-stale');
   }
-
-  async rename(oldKey: string, newKey: string): Promise<void> {
-    oldKey = oldKey.toLowerCase();
-    newKey = newKey.toLowerCase();
-    if (oldKey === newKey) return;
-    await this.mutate(types => {
-      if (types[oldKey] === undefined) return false;
-      types[newKey] = types[oldKey];
-      delete types[oldKey];
-      return true;
+  async apply(patch: TypePatch): Promise<void> {
+    const result = await this.vault.processConfigFile('types.json', current => {
+      if (current !== patch.configBeforeContent) throw new OperationError('type-config-stale');
+      return patch.configAfterContent;
     });
+    if (result !== patch.configAfterContent) throw new OperationError('write-failed');
+    await this.loadDeclarations();
   }
-
-  async merge(from: string, to: string): Promise<void> {
-    from = from.toLowerCase();
-    to = to.toLowerCase();
-    if (from === to) return;
-    await this.mutate(types => {
-      if (types[from] === undefined) return false;
-      if (types[to] === undefined) types[to] = types[from];
-      delete types[from];
-      return true;
+  async inverse(patch: TypePatch): Promise<{ before: string; after: string; alreadyOriginal: boolean }> {
+    const raw = await this.vault.readConfigFile('types.json');
+    if (raw === null) throw new OperationError('type-config-unsupported');
+    const parsed = this.codec.readDeclarations(raw);
+    if (!parsed.ok) throw new OperationError('type-config-unsupported');
+    if (!parsed.value.has(patch.targetKey)) return { before: raw, after: raw, alreadyOriginal: true };
+    const inverse = this.codec.removeTarget(raw, patch.targetKey, patch.targetAfter);
+    if (!inverse.ok) throw new OperationError('type-config-stale');
+    return { before: raw, after: inverse.value, alreadyOriginal: false };
+  }
+  async restore(patch: TypePatch, assertDependenciesUnchanged: () => void): Promise<void> {
+    // Rebuild the key-level inverse at commit time, retaining unrelated newer declarations.
+    await this.vault.processConfigFile('types.json', current => {
+      const parsed = this.codec.readDeclarations(current);
+      if (!parsed.ok) throw new OperationError('type-config-unsupported');
+      if (!parsed.value.has(patch.targetKey)) return current;
+      const inverse = this.codec.removeTarget(current, patch.targetKey, patch.targetAfter);
+      if (!inverse.ok) throw new OperationError('type-config-stale');
+      assertDependenciesUnchanged();
+      return inverse.value;
     });
-  }
-
-  private async mutate(change: (types: Record<string, unknown>) => boolean): Promise<void> {
-    try {
-      const raw = await this.vault.readConfigFile(TYPES_FILE);
-      const data = raw ? parseTypesFile(raw) : null;
-      if (!data || !change(data.types)) return;
-      await this.vault.writeConfigFile(TYPES_FILE, `${JSON.stringify(data, null, 2)}\n`);
-      await this.load();
-    } catch {
-      // Type migration is best-effort; failure must not block the main operation.
-    }
+    await this.loadDeclarations();
   }
 }

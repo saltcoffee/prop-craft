@@ -76,10 +76,10 @@ export function parseDate(raw: string, region: RegionFormat): DateParseResult {
     const year = Number(c.length === 2 ? `20${c}` : c);
     if (region === 'MDY') {
       const result = build(year, Number(a), b);
-      return result ?? { ok: false, raw };
+      return result ? { ...result, ambiguous: Number(a) <= 12 && b <= 12 && Number(a) !== b } : { ok: false, raw };
     }
     const result = build(year, b, Number(a));
-    return result ?? { ok: false, raw };
+    return result ? { ...result, ambiguous: Number(a) <= 12 && b <= 12 && Number(a) !== b } : { ok: false, raw };
   }
 
   const monthFirst = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(text);
@@ -107,6 +107,6 @@ export function parseDate(raw: string, region: RegionFormat): DateParseResult {
 export function normalizeDateValue(raw: string, target: 'date' | 'datetime', region: RegionFormat): DateParseResult {
   const parsed = parseDate(raw, region);
   if (!parsed.ok || !parsed.iso) return parsed;
-  if (target === 'date') return { ok: true, iso: parsed.iso.slice(0, 10), raw };
-  return { ok: true, iso: parsed.iso.includes('T') ? parsed.iso : `${parsed.iso}T00:00`, raw };
+  if (target === 'date') return { ...parsed, iso: parsed.iso.slice(0, 10), raw };
+  return { ...parsed, iso: parsed.iso.includes('T') ? parsed.iso : `${parsed.iso}T00:00`, raw };
 }

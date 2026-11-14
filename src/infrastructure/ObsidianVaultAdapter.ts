@@ -1,10 +1,16 @@
-import { App, TFile, normalizePath } from 'obsidian';
-import type { CachedMeta, CachedTag, VaultFile, VaultPort } from '../ports/VaultPort';
+import { App, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
+import type { BoundTagsResult, VaultFile, VaultPort } from '../ports/VaultPort';
+
+import { isNotePath, isVaultPath } from '../domain/scope';
+import { OperationError } from '../domain/errors';
+import { ObsidianNoteCodec } from './ObsidianNoteCodec';
+import { parseBodyTags } from './MarkdownTags';
 
 export class ObsidianVaultAdapter implements VaultPort {
   constructor(private readonly app: App) {}
 
   private file(path: string): TFile | null {
+    if (!isNotePath(path)) throw new OperationError('input-invalid', path);
     const abstract = this.app.vault.getAbstractFileByPath(path);
     return abstract instanceof TFile ? abstract : null;
   }
@@ -13,49 +19,39 @@ export class ObsidianVaultAdapter implements VaultPort {
     return this.app.vault.getMarkdownFiles().map(file => ({ path: file.path }));
   }
 
-  getFileCache(path: string): CachedMeta | null {
-    const file = this.file(path);
-    if (!file) return null;
-    const cache = this.app.metadataCache.getFileCache(file);
-    if (!cache) return null;
-    const frontmatter = cache.frontmatter;
-    const withPosition = cache as unknown as {
-      frontmatterPosition?: { end?: { offset?: number } };
-    };
-    // cache.tags can include frontmatter tags whose positions sit inside the YAML block.
-    // Exclude those so inline replacement never edits the frontmatter region.
-    const frontmatterEnd = withPosition.frontmatterPosition?.end?.offset ?? -1;
-    const bodyTags: CachedTag[] = (cache.tags ?? [])
-      .filter(tag => tag.position)
-      .filter(tag => tag.position.start.offset > frontmatterEnd)
-      .map(tag => ({ tag: tag.tag, start: tag.position.start.offset, end: tag.position.end.offset }));
-    return {
-      frontmatter,
-      frontmatterParseError: !frontmatter && Boolean(withPosition.frontmatterPosition),
-      bodyTags,
-    };
+  getFolders(): string[] {
+    return this.app.vault.getAllLoadedFiles().filter(file => file instanceof TFolder && file.path !== '/').map(file => file.path).sort();
+  }
+
+  async readBoundTags(_path: string, source: string, signal?: AbortSignal): Promise<BoundTagsResult> {
+    signal?.throwIfAborted();
+    const decoded = new ObsidianNoteCodec().decode(source);
+    if (!decoded.ok) return decoded;
+    return { ok: true, bodyTags: parseBodyTags(source, decoded.note.bodyStart) };
   }
 
   getMtime(path: string): number {
     return this.file(path)?.stat?.mtime ?? 0;
   }
 
+  watchMarkdownChanges(listener: () => void): () => void {
+    const changed = (file: TAbstractFile, oldPath?: string) => {
+      if (file instanceof TFolder || file instanceof TFile && file.extension.toLowerCase() === 'md' || oldPath?.toLowerCase().endsWith('.md')) listener();
+    };
+    const refs = [this.app.vault.on('create', changed), this.app.vault.on('modify', changed), this.app.vault.on('delete', changed), this.app.vault.on('rename', changed)];
+    return () => { for (const ref of refs) this.app.vault.offref(ref); };
+  }
+
   async readText(path: string): Promise<string> {
     const file = this.file(path);
-    if (!file) throw new Error(`文件不存在：${path}`);
+    if (!file) throw new OperationError('file-missing', path);
     return this.app.vault.read(file);
   }
 
-  async processFrontMatter(path: string, fn: (fm: Record<string, unknown>) => void): Promise<void> {
+  async processText(path: string, fn: (content: string) => string): Promise<string> {
     const file = this.file(path);
-    if (!file) throw new Error(`文件不存在：${path}`);
-    await this.app.fileManager.processFrontMatter(file, fn);
-  }
-
-  async processText(path: string, fn: (content: string) => string): Promise<void> {
-    const file = this.file(path);
-    if (!file) throw new Error(`文件不存在：${path}`);
-    await this.app.vault.process(file, fn);
+    if (!file) throw new OperationError('file-missing', path);
+    return this.app.vault.process(file, fn);
   }
 
   getConfigDir(): string {
@@ -63,6 +59,7 @@ export class ObsidianVaultAdapter implements VaultPort {
   }
 
   private configPath(relative: string): string {
+    if (!isVaultPath(relative) || relative !== 'types.json' && !relative.startsWith('plugins/propcraft/')) throw new OperationError('input-invalid');
     return normalizePath(`${this.app.vault.configDir}/${relative}`);
   }
 
@@ -78,11 +75,17 @@ export class ObsidianVaultAdapter implements VaultPort {
     await this.app.vault.adapter.write(path, data);
   }
 
+  async processConfigFile(relative: string, transform: (current: string) => string): Promise<string> {
+    const path = this.configPath(relative);
+    if (!(await this.app.vault.adapter.exists(path)) || typeof this.app.vault.adapter.process !== 'function') throw new OperationError('type-config-unsupported');
+    return this.app.vault.adapter.process(path, transform);
+  }
+
   async listConfigDir(relative: string): Promise<string[]> {
     const path = this.configPath(relative);
     if (!(await this.app.vault.adapter.exists(path))) return [];
     const listing = await this.app.vault.adapter.list(path);
-    return listing.files;
+    return [...listing.files, ...listing.folders].map(item => item.slice(this.app.vault.configDir.length + 1));
   }
 
   async removeConfigFile(relative: string): Promise<void> {
@@ -97,7 +100,7 @@ export class ObsidianVaultAdapter implements VaultPort {
     for (const segment of segments) {
       current = current ? `${current}/${segment}` : segment;
       if (!(await this.app.vault.adapter.exists(current))) {
-        await this.app.vault.adapter.mkdir(current).catch(() => undefined);
+        await this.app.vault.adapter.mkdir(current);
       }
     }
   }

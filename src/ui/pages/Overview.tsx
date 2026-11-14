@@ -9,13 +9,15 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-export function Overview({ snapshot, t, setTab, plugin }: PageProps) {
+export function Overview({ snapshot, t, setTab, plugin, scope }: PageProps) {
   if (!snapshot) return <div class="propcraft-empty">{t('notice.indexing')}</div>;
   const { totals } = snapshot;
   const hasData = totals.noteCount > 0;
   return (
     <div class="propcraft-page">
       <h2 class="propcraft-page-title">{t('overview.title')}</h2>
+      <div class="propcraft-muted">{t('scope.vaultStats')}</div>
+      {scope ? <div>{t('scope.counts', { matched: scope.summary.matched, manual: scope.summary.manual, effective: scope.summary.effective, unknown: scope.summary.unknown })}</div> : null}
       <div class="propcraft-stats">
         <StatCard label={t('overview.noteCount')} value={totals.noteCount} />
         <StatCard label={t('overview.propertyKeys')} value={totals.propertyKeyCount} />
