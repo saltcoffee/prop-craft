@@ -1,140 +1,116 @@
-import type { ChangePlan, EditInstruction, ExecutionResult, FileChange, TextOp } from '../domain/models';
-import { deepEqual } from '../domain/plan';
-import { sha256Hex } from '../infrastructure/hash';
+import type { PreparedPlan, ExecutionItem, ExecutionResult } from '../domain/preview';
+import { OperationError, issueCode } from '../domain/errors';
+import { validateOperation } from '../domain/operation';
+import { isNotePath } from '../domain/scope';
+import type { JournalStateV2 } from '../domain/journal';
 import type { VaultPort } from '../ports/VaultPort';
 import type { PropCraftSettings } from '../settings-model';
+import { sha256Hex } from '../infrastructure/hash';
+import { exclusionFingerprint, shouldExclude } from './exclude';
 import type { JournalService } from './JournalService';
+import type { TypeMigration } from './TypeMigration';
 
-export interface ExecuteOptions {
-  signal?: AbortSignal;
-  onProgress?: (done: number, total: number, currentPath: string) => void;
-  concurrency?: number;
-}
-
-function staleFile(path: string): Error {
-  return new Error(`文件已在预览后修改，请重新预览：${path}`);
-}
-
-function applyTextOps(content: string, ops: TextOp[]): string {
-  let output = content;
-  for (const op of [...ops].sort((a, b) => b.start - a.start)) {
-    if (output.slice(op.start, op.end) !== op.expect) throw new Error('标签位置已变化，请重新预览');
-    output = output.slice(0, op.start) + op.replacement + output.slice(op.end);
-  }
-  return output;
-}
-
-function applyEdit(vault: VaultPort, change: FileChange, edit: EditInstruction, expectedContent: string): Promise<void> {
-  const { path } = change;
-  if (edit.target === 'content' && edit.textOps) {
-    return vault.processText(path, content => {
-      if (content !== expectedContent) throw staleFile(path);
-      return applyTextOps(content, edit.textOps!);
-    });
-  }
-  if (edit.target === 'frontmatter' && edit.fmOp) {
-    return vault.processFrontMatter(path, fm => {
-      const keys = new Set([...Object.keys(edit.fmOp?.set ?? {}), ...(edit.fmOp?.delete ?? [])]);
-      for (const key of keys) {
-        const before = change.beforeFrontmatter;
-        if (Object.prototype.hasOwnProperty.call(fm, key) !== Object.prototype.hasOwnProperty.call(before, key)
-          || !deepEqual(fm[key], before[key])) throw staleFile(path);
-      }
-      if (edit.fmOp?.set) Object.assign(fm, edit.fmOp.set);
-      if (edit.fmOp?.delete) for (const key of edit.fmOp.delete) delete fm[key];
-    });
-  }
-  return Promise.resolve();
-}
-
+export interface ExecutionProgress { done: number; total: number; currentPath: string; applied: number; failed: number }
+export interface ExecuteOptions { signal?: AbortSignal; onProgress?: (progress: ExecutionProgress) => void; concurrency?: number }
 export class ChangeExecutor {
-  constructor(
-    private readonly vault: VaultPort,
-    private readonly journal: JournalService,
-    private readonly getSettings: () => PropCraftSettings,
-  ) {}
-
-  async execute(plan: ChangePlan, options: ExecuteOptions = {}): Promise<ExecutionResult> {
-    const startedAt = Date.now();
-    const concurrency = Math.max(1, options.concurrency ?? this.getSettings().writeConcurrency);
-    const signal = options.signal;
-    const changes = plan.fileChanges.filter(change => !change.skipped);
-
-    const beforeContents = new Map<string, string>();
-    const beforeHashes = new Map<string, string>();
-    const succeeded: string[] = [];
-    const failed: Array<{ path: string; error: string }> = [];
-    const processable: FileChange[] = [];
-    // Pre-read originals. A single unreadable file must not abort the whole batch,
-    // and unreadable files must never enter the journal (their original is unknown).
-    for (const change of changes) {
+  constructor(private readonly vault: VaultPort, private readonly journal: JournalService, private readonly getSettings: () => PropCraftSettings, private readonly types: TypeMigration) {}
+  async execute(plan: PreparedPlan, options: ExecuteOptions = {}): Promise<ExecutionResult> {
+    validateOperation(plan.operation);
+    if (!plan.changes.length || exclusionFingerprint(this.getSettings()) !== plan.settingsFingerprint) throw new OperationError('plan-invalid');
+    const limit = options.concurrency ?? this.getSettings().writeConcurrency;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 16) throw new OperationError('input-invalid');
+    const seen = new Set<string>();
+    for (const change of plan.changes) {
+      if (!isNotePath(change.path) || seen.has(change.path) || shouldExclude(change.path, this.getSettings())
+        || await sha256Hex(change.beforeContent) !== change.beforeHash || await sha256Hex(change.afterContent) !== change.expectedAfterHash
+        || change.beforeContent === change.afterContent) throw new OperationError('plan-invalid');
+      seen.add(change.path);
+    }
+    const reportProgress = (progress: ExecutionProgress): void => {
+      try { options.onProgress?.(progress); } catch { /* Observers cannot interrupt protected writes. */ }
+    };
+    const startedAt = Date.now(), transaction = await this.journal.prepare(plan), id = transaction.transactionId;
+    const items = new Map<string, ExecutionItem>();
+    for (const change of plan.changes) items.set(change.path, { path: change.path, status: 'not-run', reason: 'not-run' });
+    let halted = false, done = 0, typeStatus = plan.typePatch ? 'pending' : 'none';
+    const checkpoint = async (mutate: (state: JournalStateV2) => void): Promise<boolean> => {
+      try { await this.journal.update(id, mutate); return true; }
+      catch { halted = true; return false; }
+    };
+    if (!await checkpoint(state => { state.execution = 'running'; })) halted = true;
+    if (!halted && !options.signal?.aborted) {
       try {
-        if (this.vault.getMtime(change.path) !== change.expectedMtime) throw staleFile(change.path);
-        const content = await this.vault.readText(change.path);
-        if (this.vault.getMtime(change.path) !== change.expectedMtime) throw staleFile(change.path);
-        beforeContents.set(change.path, content);
-        beforeHashes.set(change.path, await sha256Hex(content));
-        processable.push(change);
+        await this.types.verifyBaseline(plan.typeBaseline);
+        if (plan.typePatch) {
+          if (await checkpoint(state => { state.typeExecution = 'applying'; })) {
+            typeStatus = 'applying';
+            await this.types.apply(plan.typePatch);
+            typeStatus = 'applied';
+            if (!await checkpoint(state => { state.typeExecution = 'applied'; })) typeStatus = 'uncertain';
+          }
+        }
       } catch (error) {
-        failed.push({ path: change.path, error: error instanceof Error ? error.message : String(error) });
+        halted = true;
+        typeStatus = issueCode(error, 'uncertain') === 'type-config-stale' ? 'stale' : plan.typePatch && typeStatus === 'applying' ? 'uncertain' : 'failed';
+        await checkpoint(state => { state.typeExecution = typeStatus === 'stale' ? 'stale' : typeStatus === 'uncertain' ? 'uncertain' : 'failed'; state.typeReason = issueCode(error, 'write-failed'); });
       }
     }
-
-    const transaction = await this.journal.begin({ ...plan, fileChanges: processable }, beforeContents, beforeHashes);
-    const queue = [...processable];
-    let done = 0;
-
-    const workers = Array.from({ length: concurrency }, async () => {
-      for (;;) {
-        if (signal?.aborted) return;
-        const change = queue.shift();
+    reportProgress({ done: 0, total: plan.changes.length, currentPath: '', applied: 0, failed: 0 });
+    let nextIndex = 0;
+    const workers = Array.from({ length: Math.min(limit, plan.changes.length) }, async () => {
+      while (!halted && !options.signal?.aborted) {
+        const change = plan.changes[nextIndex++];
         if (!change) return;
+        if (!await checkpoint(state => { const entry = state.entries.find(e => e.path === change.path)!; entry.execution = 'applying'; })) return;
+        // Workers waiting for the serial journal checkpoint must also honor cancellation.
+        if (halted || options.signal?.aborted) return;
+        let item: ExecutionItem;
         try {
-          await this.applyOne(change, beforeHashes.get(change.path) ?? '', transaction);
-          succeeded.push(change.path);
+          await this.types.verifyBaseline(plan.typePatch?.configAfterContent ?? plan.typeBaseline);
+          const written = await this.vault.processText(change.path, current => {
+            if (current !== change.beforeContent || exclusionFingerprint(this.getSettings()) !== plan.settingsFingerprint || shouldExclude(change.path, this.getSettings())) throw new OperationError('file-stale', change.path);
+            return change.afterContent;
+          });
+          if (written !== change.afterContent) throw new OperationError('write-failed');
+          item = { path: change.path, status: 'applied', reason: 'applied' };
         } catch (error) {
-          failed.push({ path: change.path, error: error instanceof Error ? error.message : String(error) });
+          const code = issueCode(error, 'write-failed');
+          if (code === 'file-stale' || code === 'type-config-stale') item = { path: change.path, status: 'stale', reason: code };
+          else {
+            // A throwing write may already have committed. Never send it straight to retry.
+            try {
+              const current = await this.vault.readText(change.path);
+              item = current === change.beforeContent ? { path: change.path, status: 'failed', reason: code } : { path: change.path, status: 'uncertain', reason: 'uncertain' };
+            } catch { item = { path: change.path, status: 'uncertain', reason: 'uncertain' }; }
+          }
         }
-        done += 1;
-        options.onProgress?.(done, processable.length, change.path);
+        items.set(change.path, item);
+        if (item.status === 'uncertain') halted = true;
+        if (!await checkpoint(state => {
+          const entry = state.entries.find(e => e.path === change.path)!;
+          entry.execution = item.status === 'skipped' ? 'not-run' : item.status; entry.reason = item.reason;
+        })) items.set(change.path, { path: change.path, status: 'uncertain', reason: 'journal-unavailable' });
+        done++;
+        reportProgress({ done, total: plan.changes.length, currentPath: change.path,
+          applied: [...items.values()].filter(item => item.status === 'applied').length,
+          failed: [...items.values()].filter(item => item.status === 'failed').length });
       }
     });
     await Promise.all(workers);
-    for (const change of queue) this.journal.recordNotApplied(transaction, change.path);
-
-    const cancelled = Boolean(signal?.aborted);
-    const status: 'committed' | 'partial' = failed.length === 0 && !cancelled ? 'committed' : 'partial';
-    await this.journal.finish(transaction, status);
-
-    return {
-      transactionId: transaction.transactionId,
-      succeeded,
-      failed,
-      skipped: queue.map(change => change.path),
-      cancelled,
-      durationMs: Date.now() - startedAt,
-    };
-  }
-
-  private async applyOne(
-    change: FileChange,
-    expectedHash: string,
-    transaction: Parameters<JournalService['recordAfter']>[0],
-  ): Promise<void> {
-    let current: string;
-    try {
-      current = await this.vault.readText(change.path);
-      if ((await sha256Hex(current)) !== expectedHash || this.vault.getMtime(change.path) !== change.expectedMtime) {
-        throw staleFile(change.path);
+    const finalSaved = await checkpoint(state => {
+      for (const entry of state.entries) {
+        const item = items.get(entry.path)!;
+        entry.execution = item.status === 'skipped' ? 'not-run' : item.status; entry.reason = item.reason;
       }
-    } catch (error) {
-      this.journal.recordNotApplied(transaction, change.path);
-      throw error;
+      if (state.typeExecution === 'pending') state.typeExecution = 'not-run';
+      state.execution = halted ? 'interrupted' : [...items.values()].every(item => item.status === 'applied') && !options.signal?.aborted ? 'completed' : 'partial';
+    });
+    if (!finalSaved) {
+      for (const [path, item] of items) if (item.status === 'applied') items.set(path, { path, status: 'uncertain', reason: 'journal-unavailable' });
     }
-    for (const edit of change.edits) {
-      await applyEdit(this.vault, change, edit, current);
-      current = await this.vault.readText(change.path);
-      this.journal.recordAfter(transaction, change.path, await sha256Hex(current));
-    }
+    this.journal.release(id);
+    return { transactionId: id, items: [...items.values(), ...plan.skipped.map(item => ({ ...item, status: 'skipped' as const }))],
+      cancelled: Boolean(options.signal?.aborted), durationMs: Date.now() - startedAt, typeStatus,
+      requiresReconciliation: !finalSaved || halted && (typeStatus === 'uncertain' || [...items.values()].some(item => item.status === 'uncertain')) };
   }
 }

@@ -1,31 +1,23 @@
-export interface VaultFile {
-  path: string;
-}
-
-export interface CachedTag {
-  tag: string;
-  /** Absolute character offsets of the tag in the file body. */
-  start: number;
-  end: number;
-}
-
+export interface VaultFile { path: string }
+export interface CachedTag { tag: string; start: number; end: number }
 export interface CachedMeta {
   frontmatter?: Record<string, unknown>;
   frontmatterParseError?: boolean;
-  /** Body (inline) tags only, with offsets. Frontmatter tags live in frontmatter. */
   bodyTags: CachedTag[];
 }
-
+export type BoundTagsResult = { ok: true; bodyTags: CachedTag[] } | { ok: false; code: 'metadata-stale' | 'frontmatter-invalid' };
 export interface VaultPort {
   getMarkdownFiles(): VaultFile[];
-  getFileCache(path: string): CachedMeta | null;
+  getFolders(): string[];
   getMtime(path: string): number;
+  watchMarkdownChanges(listener: () => void): () => void;
   readText(path: string): Promise<string>;
-  processFrontMatter(path: string, fn: (fm: Record<string, unknown>) => void): Promise<void>;
-  processText(path: string, fn: (content: string) => string): Promise<void>;
+  processText(path: string, transform: (current: string) => string): Promise<string>;
+  readBoundTags(path: string, source: string, signal?: AbortSignal): Promise<BoundTagsResult>;
   getConfigDir(): string;
-  readConfigFile(relPath: string): Promise<string | null>;
-  writeConfigFile(relPath: string, data: string): Promise<void>;
-  listConfigDir(relPath: string): Promise<string[]>;
-  removeConfigFile(relPath: string): Promise<void>;
+  readConfigFile(relative: string): Promise<string | null>;
+  writeConfigFile(relative: string, data: string): Promise<void>;
+  processConfigFile(relative: string, transform: (current: string) => string): Promise<string>;
+  listConfigDir(relative: string): Promise<string[]>;
+  removeConfigFile(relative: string): Promise<void>;
 }

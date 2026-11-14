@@ -1,6 +1,6 @@
 {
   "name": "propcraft",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Visual refactor studio for vault properties and tags: merge tags, rename keys, bulk-add fields, and normalize dates — no code.",
   "type": "module",
   "private": true,
@@ -23,7 +23,9 @@
     "check": "npm run typecheck && npm test && npm run build && npm run check:release"
   },
   "dependencies": {
-    "preact": "^10.25.0"
+    "@lezer/markdown": "^1.8.1",
+    "preact": "^10.25.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -22,7 +22,6 @@ describe('property planning', () => {
     expect(change).not.toBeNull();
     expect(change!.afterFrontmatter.creator).toBe('x');
     expect(change!.afterFrontmatter.author).toBeUndefined();
-    expect(change!.edits[0]!.fmOp!.delete).toContain('author');
   });
 
   it('merges into a missing target', () => {
@@ -36,9 +35,9 @@ describe('property planning', () => {
     expect([...values].sort()).toEqual([1, 2, 3]);
   });
 
-  it('flags a scalar conflict under merge-list', () => {
+  it('does not silently fall back to keep-target for scalar merge-list', () => {
     const change = planMergeProperty(meta('a.md', { from: 'a', to: 'b' }), 'from', 'to', 'merge-list');
-    expect(change!.conflict).toBeDefined();
+    expect(change).toBeNull();
   });
 
   it('skips adding when the key exists and policy is skip', () => {
@@ -78,7 +77,7 @@ describe('tag planning', () => {
     const tags: TagOccurrence[] = [{ tag: from, normalized: '', origin: 'both', positions: [{ start: 0, end: from.length }] }];
     const change = planRenameTag(meta('a.md', { tags: [from.slice(1)] }, tags), from, to)!;
     expect(change.afterFrontmatter.tags).toEqual([to.slice(1)]);
-    expect(change.edits[0]!.textOps![0]!.replacement).toBe(to);
+    expect(change.textOps[0]!.replacement).toBe(to);
   });
 
   it('preserves unrelated tag spellings, duplicates, and non-string entries', () => {
@@ -86,9 +85,9 @@ describe('tag planning', () => {
     expect(change.afterFrontmatter.tags).toEqual(['new', 'project_alpha', 'project-alpha', 'other', 'other', 7]);
   });
 
-  it('does not rename an unselected separator or case variant', () => {
+  it('matches case variants but preserves distinct separators', () => {
     const change = planRenameTag(meta('a.md', { tags: ['old_tag', 'old-tag', 'Old_tag'] }), '#old_tag', '#new')!;
-    expect(change.afterFrontmatter.tags).toEqual(['new', 'old-tag', 'Old_tag']);
+    expect(change.afterFrontmatter.tags).toEqual(['new', 'old-tag']);
   });
 
   it('only deduplicates the merge destination', () => {
@@ -104,7 +103,7 @@ describe('tag planning', () => {
   it('adds the hash prefix to a target entered without one', () => {
     const tags: TagOccurrence[] = [{ tag: '#old', normalized: 'old', origin: 'both', positions: [{ start: 0, end: 4 }] }];
     const change = planRenameTag(meta('a.md', { tags: ['old'] }, tags), '#old', 'new')!;
-    expect(change.edits[0]!.textOps![0]!.replacement).toBe('#new');
+    expect(change.textOps[0]!.replacement).toBe('#new');
     expect(change.afterFrontmatter.tags).toEqual(['new']);
   });
 
@@ -118,8 +117,7 @@ describe('tag planning', () => {
     ];
     const change = planRenameTag(meta('a.md', { tags: ['阅读', '方法论'] }, tags), '#阅读', '#读书');
     expect(change).not.toBeNull();
-    expect(change!.edits[0]!.target).toBe('content');
-    expect(change!.edits[0]!.textOps![0]).toMatchObject({ expect: '#阅读', replacement: '#读书' });
+    expect(change!.textOps[0]).toMatchObject({ expect: '#阅读', replacement: '#读书' });
     expect(change!.afterFrontmatter.tags).toEqual(['读书', '方法论']);
   });
 

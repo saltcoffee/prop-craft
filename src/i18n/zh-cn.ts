@@ -1,6 +1,8 @@
+import { zh012 } from './v012';
 import type { Strings } from './en';
 
 export const zhCN: Strings = {
+  ...zh012,
   pluginName: 'PropCraft',
   commandOpen: '打开 PropCraft',
   commandRebuild: '重建 PropCraft 索引',
@@ -128,7 +130,7 @@ export const zhCN: Strings = {
   'settings.concurrency': '写入并发数',
   'settings.concurrencyDesc': '批量操作时同时写入多少篇笔记。',
   'settings.journalMax': '撤销历史保留数',
-  'settings.journalMaxDesc': '保留最近多少次批量操作以供撤销。',
+  'settings.journalMaxDesc': '恢复记录条数上限。达到限额时停止新改写，不会自动删除记录。',
   'settings.debug': '调试日志',
   'settings.debugDesc': '在开发者控制台输出更多诊断信息。',
   'settings.language': '界面语言',

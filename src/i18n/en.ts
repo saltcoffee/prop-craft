@@ -1,4 +1,7 @@
+import { en012 } from './v012';
+
 export const en = {
+  ...en012,
   pluginName: 'PropCraft',
   commandOpen: 'Open PropCraft',
   commandRebuild: 'Rebuild PropCraft index',
@@ -126,7 +129,7 @@ export const en = {
   'settings.concurrency': 'Write concurrency',
   'settings.concurrencyDesc': 'How many notes to write at once during a batch operation.',
   'settings.journalMax': 'Undo history size',
-  'settings.journalMaxDesc': 'How many recent batch operations to keep for undo.',
+  'settings.journalMaxDesc': 'Maximum number of recovery records. New writes stop at the limit; nothing is automatically deleted.',
   'settings.debug': 'Debug logging',
   'settings.debugDesc': 'Write extra diagnostics to the developer console.',
   'settings.language': 'Interface language',

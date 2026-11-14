@@ -1,6 +1,9 @@
 import { Notice, Plugin, TFile, WorkspaceLeaf, moment } from 'obsidian';
 import { VIEW_TYPE_PROP_CRAFT } from './constants';
-import type { ChangePlan, ExecutionResult } from './domain/models';
+import { OperationCoordinator } from './application/OperationCoordinator';
+import { ScopeService } from './application/ScopeService';
+import { ObsidianNoteCodec } from './infrastructure/ObsidianNoteCodec';
+import { ObsidianTypeConfigCodec } from './infrastructure/ObsidianTypeConfigCodec';
 import { ChangeExecutor } from './application/ChangeExecutor';
 import { ChangePlanner } from './application/ChangePlanner';
 import { JournalService } from './application/JournalService';
@@ -23,30 +26,36 @@ export default class PropCraftPlugin extends Plugin {
   store!: SnapshotStore;
   planner!: ChangePlanner;
   journal!: JournalService;
+  scopeService!: ScopeService;
+  coordinator!: OperationCoordinator;
 
   private adapter!: ObsidianVaultAdapter;
   private indexer!: VaultIndexer;
   private executor!: ChangeExecutor;
   private undoService!: UndoService;
   private typeMigration!: TypeMigration;
-  private abortController: AbortController | null = null;
 
   override async onload(): Promise<void> {
     await this.loadSettings();
 
     this.adapter = new ObsidianVaultAdapter(this.app);
     this.store = new SnapshotStore();
-    this.typeMigration = new TypeMigration(this.adapter);
+    const codec = new ObsidianNoteCodec();
+    this.typeMigration = new TypeMigration(this.adapter, new ObsidianTypeConfigCodec());
     await this.typeMigration.load();
 
     this.indexer = new VaultIndexer(this.adapter, this.store, {
       getSettings: () => this.settings,
       getTypes: () => this.typeMigration.getCached(),
-    });
+    }, codec);
     this.journal = new JournalService(new ObsidianJournalStore(this.adapter), () => this.settings);
-    this.planner = new ChangePlanner(this.adapter, this.store, () => this.settings);
-    this.executor = new ChangeExecutor(this.adapter, this.journal, () => this.settings);
-    this.undoService = new UndoService(this.adapter, this.journal);
+    this.planner = new ChangePlanner(this.adapter, this.store, () => this.settings, codec, this.typeMigration);
+    this.executor = new ChangeExecutor(this.adapter, this.journal, () => this.settings, this.typeMigration);
+    this.undoService = new UndoService(this.adapter, this.journal, this.typeMigration, codec, () => this.settings);
+
+    this.scopeService = new ScopeService(() => this.settings);
+    this.coordinator = new OperationCoordinator(this.planner, this.executor, this.journal, this.undoService);
+    await this.coordinator.initialize();
 
     this.t = translator(() => this.language());
 
@@ -58,8 +67,9 @@ export default class PropCraftPlugin extends Plugin {
 
     this.addSettingTab(new PropCraftSettingTab(this.app, this));
 
-    this.registerEvent(this.app.metadataCache.on('changed', file => this.indexer.onChanged(file.path)));
-    this.registerEvent(this.app.metadataCache.on('resolved', () => this.reindex()));
+    this.registerEvent(this.app.vault.on('modify', file => {
+      if (file instanceof TFile && file.extension === 'md') this.indexer.onChanged(file.path);
+    }));
     this.registerEvent(this.app.vault.on('create', file => {
       if (file instanceof TFile && file.extension === 'md') this.indexer.onCreated(file.path);
     }));
@@ -67,7 +77,9 @@ export default class PropCraftPlugin extends Plugin {
       if (file instanceof TFile) this.indexer.onDeleted(file.path);
     }));
     this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
-      if (file instanceof TFile && file.extension === 'md') this.indexer.onRenamed(oldPath, file.path);
+      if (!(file instanceof TFile)) return;
+      if (oldPath.toLowerCase().endsWith('.md')) this.indexer.onDeleted(oldPath);
+      if (file.extension === 'md') this.indexer.onCreated(file.path);
     }));
 
     this.app.workspace.onLayoutReady(() => this.indexer.start());
@@ -75,7 +87,7 @@ export default class PropCraftPlugin extends Plugin {
 
   override onunload(): void {
     this.indexer?.stop();
-    this.abortController?.abort();
+    this.coordinator?.dispose();
   }
 
   language(): string {
@@ -124,35 +136,15 @@ export default class PropCraftPlugin extends Plugin {
     }
   }
 
-  async executePlan(plan: ChangePlan, onProgress?: (done: number, total: number) => void): Promise<ExecutionResult> {
-    this.abortController = new AbortController();
-    try {
-      const result = await this.executor.execute(plan, { signal: this.abortController.signal, onProgress });
-      if (!result.cancelled && result.failed.length === 0 && result.succeeded.length > 0) await this.applyTypeMigration(plan);
-      return result;
-    } finally {
-      this.abortController = null;
-    }
+  async openNote(path: string): Promise<void> {
+    await this.app.workspace.openLinkText(path, '', true);
   }
 
-  cancelExecution(): void {
-    this.abortController?.abort();
-  }
-
-  async undo(transactionId: string) {
-    return this.undoService.undo(transactionId);
-  }
-
-  private async applyTypeMigration(plan: ChangePlan): Promise<void> {
-    try {
-      if (plan.operation.kind === 'renameProperty') {
-        await this.typeMigration.rename(plan.operation.from, plan.operation.to);
-      } else if (plan.operation.kind === 'mergeProperty') {
-        await this.typeMigration.merge(plan.operation.from, plan.operation.to);
-      }
-    } catch {
-      // Type migration is best-effort.
-    }
+  openSettings(): void {
+    // The workspace command opens the native settings UI without writing data.
+    const settings = this.app as unknown as { setting?: { open(): void; openTabById(id: string): void } };
+    settings.setting?.open();
+    settings.setting?.openTabById(this.manifest.id);
   }
 
   async activateView(): Promise<void> {

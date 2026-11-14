@@ -13,12 +13,13 @@ function dominantType(stat: PropertyStat): PropertyValueType {
 
 function sampleText(stat: PropertyStat): string {
   if (!stat.sampleValues.length) return '—';
-  return stat.sampleValues.map(value => (typeof value === 'string' ? value : JSON.stringify(value))).join(', ');
+  return stat.sampleValues.map(value => (typeof value === 'string' ? value.length > 0 && !value.trim() ? JSON.stringify(value) : value : JSON.stringify(value))).join(', ');
 }
 
-export function PropertyGrid({ snapshot, t, plugin, onPreview }: PageProps) {
+export function PropertyGrid({ snapshot, t, plugin, requestPreview, canPreview }: PageProps) {
   const [search, setSearch] = useState('');
   const [onlyOrphans, setOnlyOrphans] = useState(false);
+  const [dateTarget, setDateTarget] = useState<'date' | 'datetime'>('date');
 
   if (!snapshot) return <div class="propcraft-empty">{t('notice.indexing')}</div>;
 
@@ -30,27 +31,27 @@ export function PropertyGrid({ snapshot, t, plugin, onPreview }: PageProps) {
   const rename = async (stat: PropertyStat) => {
     const next = await plugin.prompt(t('properties.rename'), stat.key);
     if (!next || next === stat.key) return;
-    onPreview(plugin.planner.planRenameProperty(stat.key, next));
+    await requestPreview({ kind: 'renameProperty', from: stat.key, to: next });
   };
   const mergeInto = async (stat: PropertyStat) => {
     const target = await plugin.prompt(t('properties.mergeInto'), '');
     if (!target || target === stat.key) return;
-    onPreview(plugin.planner.planMergeProperty(stat.key, target, 'merge-list'));
+    await requestPreview({ kind: 'mergeProperty', from: stat.key, to: target });
   };
   const remove = async (stat: PropertyStat) => {
-    const ok = await plugin.confirm(t('properties.deleteConfirm', { key: stat.key, count: stat.fileCount }));
-    if (!ok) return;
-    onPreview(plugin.planner.planDeleteProperty(stat.key));
+    await requestPreview({ kind: 'deleteProperty', key: stat.key });
   };
   const normalize = (stat: PropertyStat) => {
-    onPreview(plugin.planner.planNormalizeDate(stat.key, 'date', plugin.settings.dateRegionFormat));
+    void requestPreview({ kind: 'normalizeDate', key: stat.key, target: dateTarget, regionFormat: plugin.settings.dateRegionFormat });
   };
 
   return (
     <div class="propcraft-page">
       <h2 class="propcraft-page-title">{t('properties.title')}</h2>
+      <div class="propcraft-muted">{t('scope.current')}</div>
       <div class="propcraft-toolbar">
         <input class="propcraft-input" placeholder={t('properties.search')} value={search} onInput={event => setSearch((event.target as HTMLInputElement).value)} />
+        <label>{t('preview.dateTarget')} <select class="propcraft-input" value={dateTarget} onChange={event => setDateTarget(event.currentTarget.value === 'datetime' ? 'datetime' : 'date')}><option value="date">YYYY-MM-DD</option><option value="datetime">YYYY-MM-DDTHH:mm</option></select></label>
         <label class="propcraft-check">
           <input type="checkbox" checked={onlyOrphans} onChange={event => setOnlyOrphans((event.target as HTMLInputElement).checked)} />
           {t('properties.onlyOrphans')}
@@ -82,10 +83,10 @@ export function PropertyGrid({ snapshot, t, plugin, onPreview }: PageProps) {
                   <td class="propcraft-actions">
                     {!stat.isReserved ? (
                       <>
-                        <button class="propcraft-link" onClick={() => void rename(stat)}>{t('properties.rename')}</button>
-                        <button class="propcraft-link" onClick={() => void mergeInto(stat)}>{t('properties.mergeInto')}</button>
-                        <button class="propcraft-link" onClick={() => normalize(stat)}>{t('properties.normalizeDates')}</button>
-                        <button class="propcraft-link mod-danger" onClick={() => void remove(stat)}>{t('properties.delete')}</button>
+                        <button class="propcraft-link" disabled={!canPreview} onClick={() => void rename(stat)}>{t('properties.rename')}</button>
+                        <button class="propcraft-link" disabled={!canPreview} onClick={() => void mergeInto(stat)}>{t('properties.mergeInto')}</button>
+                        <button class="propcraft-link" disabled={!canPreview} onClick={() => normalize(stat)}>{t('properties.normalizeDates')}</button>
+                        <button class="propcraft-link mod-danger" disabled={!canPreview} onClick={() => void remove(stat)}>{t('properties.delete')}</button>
                       </>
                     ) : <span class="propcraft-muted">—</span>}
                   </td>

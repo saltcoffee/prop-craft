@@ -105,6 +105,17 @@ export class PropCraftSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
+      .setName(t('settings.journalBytes'))
+      .setDesc(t('settings.journalBytesDesc'))
+      .addText(text => text.setValue(String(this.plugin.settings.journalMaxBytes / (1024 * 1024)))
+        .onChange(async value => {
+          const amount = Number(value);
+          if (!Number.isFinite(amount) || amount <= 0) return;
+          this.plugin.settings.journalMaxBytes = Math.ceil(amount * 1024 * 1024);
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
       .setName(t('settings.dateRegion'))
       .setDesc(t('settings.dateRegionDesc'))
       .addDropdown(dropdown => dropdown
@@ -139,12 +150,14 @@ export class PropCraftSettingTab extends PluginSettingTab {
       { name: t('settings.excludeTemplates'), desc: t('settings.excludeTemplatesDesc'), control: { type: 'toggle', key: 'excludeTemplates', defaultValue: true } },
       { name: t('settings.concurrency'), desc: t('settings.concurrencyDesc'), control: { type: 'number', key: 'writeConcurrency', defaultValue: 8, min: 1, max: 16, step: 1 } },
       { name: t('settings.journalMax'), desc: t('settings.journalMaxDesc'), control: { type: 'number', key: 'journalMaxTransactions', defaultValue: 10, min: 1, max: 100, step: 1 } },
+      { name: t('settings.journalBytes'), desc: t('settings.journalBytesDesc'), control: { type: 'number', key: 'journalMaxBytes', defaultValue: 50, min: 1, step: 1 } },
       { name: t('settings.dateRegion'), desc: t('settings.dateRegionDesc'), control: { type: 'dropdown', key: 'dateRegionFormat', options: { MDY: 'MM/DD/YYYY', DMY: 'DD/MM/YYYY', YMD: 'YYYY/MM/DD' }, defaultValue: 'MDY' } },
       { name: t('settings.debug'), desc: t('settings.debugDesc'), control: { type: 'toggle', key: 'debugLogging', defaultValue: false } },
     ];
   }
 
   override getControlValue(key: string): unknown {
+    if (key === 'journalMaxBytes') return this.plugin.settings.journalMaxBytes / (1024 * 1024);
     if (key === 'excludeGlobs') return this.plugin.settings.excludeGlobs.join('\n');
     return (this.plugin.settings as unknown as Record<string, unknown>)[key];
   }
@@ -167,6 +180,12 @@ export class PropCraftSettingTab extends PluginSettingTab {
       case 'journalMaxTransactions':
         settings.journalMaxTransactions = Math.min(100, Math.max(1, Math.floor(Number(value) || 10)));
         break;
+      case 'journalMaxBytes': {
+        const amount = Number(value);
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        settings.journalMaxBytes = Math.ceil(amount * 1024 * 1024);
+        break;
+      }
       case 'locale':
         settings.locale = value === 'zh' || value === 'en' ? value : 'auto';
         break;

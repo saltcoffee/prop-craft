@@ -135,3 +135,30 @@
 .propcraft-diff-label { color: var(--text-muted); }
 .propcraft-diff-before { color: var(--text-error); }
 .propcraft-diff-after { color: var(--text-success); }
+
+/* Shared note scope and decision/recovery panels. */
+.propcraft-scope {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 12px 16px;
+  background: var(--background-secondary);
+}
+.propcraft-condition { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.propcraft-condition .propcraft-input { width: auto; min-width: 120px; max-width: 100%; flex: 1 1 140px; }
+.propcraft-toolbar { flex-wrap: wrap; }
+.propcraft-path { overflow-wrap: anywhere; white-space: normal; }
+.propcraft-drawer .propcraft-toolbar { padding: 8px 16px; margin: 0; }
+.propcraft-drawer-summary { max-height: 35vh; overflow: auto; }
+.propcraft-drawer-actions { flex-wrap: wrap; }
+.propcraft-drawer [data-dialog-title]:focus { outline: 2px solid var(--interactive-accent); outline-offset: 3px; }
+.propcraft-diff .propcraft-input { width: 100%; margin: 6px 0; }
+.propcraft-diff-row { overflow-wrap: anywhere; }
+.propcraft-original { max-height: 50vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.propcraft button:focus-visible, .propcraft input:focus-visible, .propcraft select:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.propcraft button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 600px) {
+  .propcraft-drawer { width: 100%; max-width: 100%; }
+  .propcraft-topbar { flex-wrap: wrap; }
+  .propcraft-tabs { flex-wrap: wrap; }
+  .propcraft-condition { align-items: stretch; }
+  .propcraft-diff-row { flex-wrap: wrap; }
+}

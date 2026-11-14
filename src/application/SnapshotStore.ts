@@ -6,6 +6,7 @@ export type SnapshotListener = (snapshot: VaultSnapshot | null) => void;
 export class SnapshotStore {
   private snapshot: VaultSnapshot | null = null;
   private readonly listeners = new Set<SnapshotListener>();
+  private revision = 0;
   private state: IndexStatus = 'idle';
 
   get(): VaultSnapshot | null {
@@ -13,7 +14,7 @@ export class SnapshotStore {
   }
 
   set(snapshot: VaultSnapshot): void {
-    this.snapshot = snapshot;
+    this.snapshot = { ...snapshot, revision: ++this.revision, files: new Map(snapshot.files) };
     this.emit();
   }
 
