@@ -95,6 +95,26 @@ export type MergeStrategy = 'keep-target' | 'keep-source' | 'merge-list' | 'skip
 export type ConflictStrategy = 'skip' | 'overwrite' | 'append';
 export type RegionFormat = 'MDY' | 'DMY' | 'YMD';
 
+/** A typed scalar used as an exact mapping source/target. */
+export type { ValueScalar, ValueTarget, EmptyState, ActualValueType, FieldState } from './property-value';
+import type { EmptyState, ValueScalar, ValueTarget } from './property-value';
+
+export interface ValueMappingRule {
+  id: string;
+  from: ValueScalar;
+  to: ValueScalar;
+}
+export interface FillSpec {
+  states: readonly EmptyState[];
+  target: ValueTarget;
+}
+export type SplitDelimiter = { kind: 'literal'; value: string } | { kind: 'newline' };
+export type ValueConversion =
+  | { kind: 'text-to-number' }
+  | { kind: 'wrap-list' }
+  | { kind: 'split-list'; delimiter: SplitDelimiter; trimItems: boolean; dropEmptyItems: boolean }
+  | { kind: 'normalize-date'; target: 'date' | 'datetime'; regionFormat: RegionFormat };
+
 export type ChangeOperation =
   | { kind: 'renameProperty'; from: string; to: string }
   | { kind: 'mergeProperty'; from: string; to: string }
@@ -102,7 +122,13 @@ export type ChangeOperation =
   | { kind: 'renameTag'; from: string; to: string }
   | { kind: 'mergeTag'; from: string; to: string }
   | { kind: 'addProperty'; key: string; value: unknown; valueType: PropertyValueType; onConflict: ConflictStrategy }
-  | { kind: 'normalizeDate'; key: string; target: 'date' | 'datetime'; regionFormat: RegionFormat };
+  | { kind: 'normalizeDate'; key: string; target: 'date' | 'datetime'; regionFormat: RegionFormat }
+  | { kind: 'mapPropertyValues'; key: string; mode: 'field'; rules: readonly ValueMappingRule[]; fill?: FillSpec }
+  | { kind: 'mapPropertyValues'; key: string; mode: 'member'; rules: readonly ValueMappingRule[]; fill?: never }
+  | { kind: 'convertPropertyType'; key: string; sources: readonly ValueScalar[]; conversion: ValueConversion };
+
+export type MapPropertyValuesOperation = Extract<ChangeOperation, { kind: 'mapPropertyValues' }>;
+export type ConvertPropertyTypeOperation = Extract<ChangeOperation, { kind: 'convertPropertyType' }>;
 
 export interface TextOp {
   start: number;

@@ -1,7 +1,27 @@
 import type { ChangeOperation, DiffHunk, FileChange, MergeStrategy } from './models';
+import type { ActualValueType } from './property-value';
 import type { IssueCode } from './errors';
 import type { ScopeQuery, ScopeSummary } from './scope';
 import type { TypePatch } from './type-config';
+
+export type ValueConfirmation = 'value-loss' | 'declared-type-mismatch' | 'date-interpretation';
+export interface ValueIssue { code: IssueCode; detail?: string }
+export interface ValueAnalysis {
+  outcome: 'ready' | 'needs-confirmation' | 'unconvertible' | 'noop';
+  /** Missing values have no actual type. */
+  beforeType?: ActualValueType;
+  afterType?: ActualValueType;
+  candidate?: unknown;
+  ruleIds: readonly string[];
+  issues: readonly ValueIssue[];
+  requiredConfirmations: readonly ValueConfirmation[];
+}
+export interface ValueSummary {
+  ready: number;
+  needsConfirmation: number;
+  unconvertible: number;
+  noop: number;
+}
 
 export interface PreviewDecision {
   path: string;
@@ -9,6 +29,8 @@ export interface PreviewDecision {
   selected: boolean;
   merge?: MergeStrategy;
   dateInterpretationConfirmed?: boolean;
+  valueLossConfirmed?: boolean;
+  declaredTypeMismatchConfirmed?: boolean;
   individual?: boolean;
 }
 export interface PreviewDecisionPatch {
@@ -17,6 +39,8 @@ export interface PreviewDecisionPatch {
   selected?: boolean;
   merge?: MergeStrategy;
   dateInterpretationConfirmed?: boolean;
+  valueLossConfirmed?: boolean;
+  declaredTypeMismatchConfirmed?: boolean;
   individual?: boolean;
 }
 export interface PreviewItem {
@@ -31,6 +55,7 @@ export interface PreviewItem {
   ambiguousDate?: string;
   conflictValues?: { source: string; target: string };
   stale?: boolean;
+  valueAnalysis?: ValueAnalysis;
 }
 export interface PreviewSummary {
   total: number;
@@ -50,6 +75,7 @@ export interface PreviewView {
   items: readonly PreviewItem[];
   summary: PreviewSummary;
   typeSummary: TypeSummary;
+  valueSummary?: ValueSummary;
   invalid?: IssueCode;
   retryOf?: string;
 }
@@ -88,6 +114,7 @@ export interface AnalyzedOperation {
   allowedStrategies: MergeStrategy[];
   change?: FileChange;
   ambiguousDate?: string;
+  valueAnalysis?: ValueAnalysis;
 }
 export interface ExecutionItem {
   path: string;

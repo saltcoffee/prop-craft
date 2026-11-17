@@ -2,7 +2,7 @@ import type { ChangeOperation } from './models';
 import type { ScopeSummary } from './scope';
 import type { IssueCode } from './errors';
 import type { TypePatch } from './type-config';
-import { isChangeOperation } from './operation';
+import { isChangeOperation, KNOWN_OPERATION_KINDS } from './operation';
 import { isNotePath, isVaultPath } from './scope';
 
 export type FileExecutionStatus = 'pending' | 'applying' | 'applied' | 'failed' | 'stale' | 'not-run' | 'uncertain';
@@ -113,6 +113,11 @@ export async function decodeJournal(raw: string | null, stateRaw: string | null,
     const value: unknown = JSON.parse(raw);
     if (!object(value)) return invalid();
     if (value.schemaVersion !== undefined && value.schemaVersion !== 2) return { kind: 'unsupported', transactionId: id, issue: 'journal-unsupported' };
+    // A future/unknown operation kind is unsupported (read-only), never a corrupted known record.
+    if (object(value.operation) && typeof (value.operation as Record<string, unknown>).kind === 'string'
+      && !KNOWN_OPERATION_KINDS.has((value.operation as Record<string, unknown>).kind as string)) {
+      return { kind: 'unsupported', transactionId: id, issue: 'journal-unsupported' };
+    }
     if (value.transactionId !== id || !finiteTime(value.createdAt) || !isChangeOperation(value.operation)
       || !Array.isArray(value.entries) || value.entries.length > 100000) return invalid();
     const paths = new Set<string>();

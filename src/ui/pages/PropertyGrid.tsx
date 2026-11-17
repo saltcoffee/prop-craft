@@ -16,7 +16,7 @@ function sampleText(stat: PropertyStat): string {
   return stat.sampleValues.map(value => (typeof value === 'string' ? value.length > 0 && !value.trim() ? JSON.stringify(value) : value : JSON.stringify(value))).join(', ');
 }
 
-export function PropertyGrid({ snapshot, t, plugin, requestPreview, canPreview }: PageProps) {
+export function PropertyGrid({ snapshot, t, plugin, requestPreview, canPreview, onOpenValues }: PageProps) {
   const [search, setSearch] = useState('');
   const [onlyOrphans, setOnlyOrphans] = useState(false);
   const [dateTarget, setDateTarget] = useState<'date' | 'datetime'>('date');
@@ -73,7 +73,9 @@ export function PropertyGrid({ snapshot, t, plugin, requestPreview, canPreview }
               {rows.map(stat => (
                 <tr key={stat.key} class={stat.isOrphan ? 'is-orphan' : ''}>
                   <td>
-                    {stat.key}
+                    {!stat.isReserved && onOpenValues
+                      ? <button class="propcraft-link" onClick={() => onOpenValues(stat.key)}>{stat.key}</button>
+                      : stat.key}
                     {stat.isReserved ? <span class="propcraft-badge">{t('properties.reserved')}</span> : null}
                     {stat.isOrphan ? <span class="propcraft-badge mod-warn">{t('properties.orphan')}</span> : null}
                   </td>
@@ -83,6 +85,7 @@ export function PropertyGrid({ snapshot, t, plugin, requestPreview, canPreview }
                   <td class="propcraft-actions">
                     {!stat.isReserved ? (
                       <>
+                        {onOpenValues ? <button class="propcraft-link" onClick={() => onOpenValues(stat.key)}>{t('values.entry')}</button> : null}
                         <button class="propcraft-link" disabled={!canPreview} onClick={() => void rename(stat)}>{t('properties.rename')}</button>
                         <button class="propcraft-link" disabled={!canPreview} onClick={() => void mergeInto(stat)}>{t('properties.mergeInto')}</button>
                         <button class="propcraft-link" disabled={!canPreview} onClick={() => normalize(stat)}>{t('properties.normalizeDates')}</button>

@@ -14,6 +14,8 @@ PropCraft turns that cleanup into sorting a spreadsheet. Open the workbench, see
 
 - **Choose the notes.** Combine a vault folder, tag conditions and property conditions with AND; review matches and exclude individual notes. The scope follows you across the workbench tabs.
 - **Everything in one view.** Every property key and tag in the vault, with how many notes use it, its value type, and sample values.
+- **See every value.** Open a property to inspect its complete value distribution, actual storage type versus the vault-wide declaration, and list members, then drill into any value's notes.
+- **Map many values at once.** Map `已读` / `finished` / `Done ` to one standard value, replace list members in place, fill missing or empty values, and repair `"5"` → `5`, wrap or split lists, and normalize dates with an explanation for every exception.
 - **Spot the mess.** Orphan properties used only once, and suspected-duplicate tags or keys (case, singular/plural, separators, typos) are grouped and highlighted.
 - **Drag to merge.** Drag `#reading` onto `#read` and let go. A preview lists every note that will change; confirm once and PropCraft rewrites them in the background.
 - **Rename or merge fields.** Collapse `author` / `Author` / `writer` into one property, choosing how conflicting values are combined.

@@ -15,7 +15,7 @@ export function Dialog({ title, closeLabel, onClose, children, drawer = false }:
     <div class={drawer ? 'propcraft-drawer' : 'propcraft-dialog'} role="dialog" aria-modal="true" aria-label={title} ref={root} onKeyDown={event => {
       if (event.key === 'Escape' && onClose) { event.preventDefault(); event.stopPropagation(); onClose(); }
       if (event.key !== 'Tab') return;
-      const nodes = [...(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]') ?? [])].filter(el => el.getClientRects().length);
+      const nodes = [...(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]') ?? [])].filter(el => el.getClientRects().length);
       const first = nodes[0], last = nodes.at(-1), active = root.current?.ownerDocument.activeElement;
       if (!first) { event.preventDefault(); return; }
       if (event.shiftKey && (active === first || !nodes.includes(active as HTMLElement))) { event.preventDefault(); last?.focus(); }

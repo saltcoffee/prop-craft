@@ -7,7 +7,12 @@ export type IssueCode =
   | 'source-missing' | 'already-equal' | 'already-normalized' | 'date-unrecognized'
   | 'date-non-text' | 'date-ambiguous' | 'conflict-unresolved' | 'policy-skip'
   | 'user-unselected' | 'no-change' | 'cancelled' | 'external-edit' | 'evidence-missing'
-  | 'globally-excluded' | 'already-original' | 'restored' | 'applied' | 'not-run' | 'uncertain' | 'reserved-key';
+  | 'globally-excluded' | 'already-original' | 'restored' | 'applied' | 'not-run' | 'uncertain' | 'reserved-key'
+  // 0.1.3 value workbench codes.
+  | 'mapping-source-conflict' | 'mapping-non-idempotent' | 'value-source-unselected'
+  | 'value-empty-source' | 'value-unsupported' | 'number-format' | 'number-representation'
+  | 'number-precision' | 'split-link' | 'split-delimiter-missing' | 'date-value-loss'
+  | 'date-invalid-time' | 'date-unsupported' | 'declared-type-mismatch';
 
 export class OperationError extends Error {
   constructor(readonly code: IssueCode, readonly path?: string) {

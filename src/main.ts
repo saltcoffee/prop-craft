@@ -6,6 +6,7 @@ import { ObsidianNoteCodec } from './infrastructure/ObsidianNoteCodec';
 import { ObsidianTypeConfigCodec } from './infrastructure/ObsidianTypeConfigCodec';
 import { ChangeExecutor } from './application/ChangeExecutor';
 import { ChangePlanner } from './application/ChangePlanner';
+import { PropertyValueService } from './application/PropertyValueService';
 import { JournalService } from './application/JournalService';
 import { SnapshotStore } from './application/SnapshotStore';
 import { TypeMigration } from './application/TypeMigration';
@@ -28,6 +29,7 @@ export default class PropCraftPlugin extends Plugin {
   journal!: JournalService;
   scopeService!: ScopeService;
   coordinator!: OperationCoordinator;
+  valueService!: PropertyValueService;
 
   private adapter!: ObsidianVaultAdapter;
   private indexer!: VaultIndexer;
@@ -54,6 +56,7 @@ export default class PropCraftPlugin extends Plugin {
     this.undoService = new UndoService(this.adapter, this.journal, this.typeMigration, codec, () => this.settings);
 
     this.scopeService = new ScopeService(() => this.settings);
+    this.valueService = new PropertyValueService(this.typeMigration, () => this.settings);
     this.coordinator = new OperationCoordinator(this.planner, this.executor, this.journal, this.undoService);
     await this.coordinator.initialize();
 

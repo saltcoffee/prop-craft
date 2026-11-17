@@ -1,8 +1,10 @@
 import { zh012 } from './v012';
+import { zh013 } from './v013';
 import type { Strings } from './en';
 
 export const zhCN: Strings = {
   ...zh012,
+  ...zh013,
   pluginName: 'PropCraft',
   commandOpen: '打开 PropCraft',
   commandRebuild: '重建 PropCraft 索引',

@@ -11,6 +11,7 @@ import { ScopeBar } from './components/ScopeBar';
 import { OperationPanel } from './components/OperationPanel';
 import { Overview } from './pages/Overview';
 import { PropertyGrid } from './pages/PropertyGrid';
+import { PropertyValueWorkbench } from './pages/PropertyValueWorkbench';
 import { TagGrid } from './pages/TagGrid';
 import { BulkWizard } from './pages/BulkWizard';
 import { History } from './pages/History';
@@ -27,6 +28,7 @@ export function App({ plugin }: { plugin: PropCraftPlugin }) {
   const [scope, setScope] = useState<ScopeResult | null>(null), [scopeBusy, setScopeBusy] = useState(true), [scopeError, setScopeError] = useState<IssueCode>();
   const [preview, setPreview] = useState<PreviewView | null>(null), [previewBusy, setPreviewBusy] = useState(false);
   const [operation, setOperation] = useState(plugin.coordinator.getState()), [error, setError] = useState<IssueCode>();
+  const [valueKey, setValueKey] = useState<string | null>(null);
   const mounted = useRef(true);
   const previewRef = useRef(preview), action = useRef(false), createRequest = useRef(0), previewAbort = useRef<AbortController | null>(null);
   previewRef.current = preview;
@@ -103,16 +105,16 @@ export function App({ plugin }: { plugin: PropCraftPlugin }) {
     catch (error) { fail(error); }
     finally { action.current = false; }
   };
-  const pageProps: PageProps = { plugin, snapshot: tab === 'overview' || tab === 'history' ? snapshot : scopedSnapshot, scope, canPreview: ready && !previewBusy && !plugin.coordinator.isBusy(), t, requestPreview, setTab };
+  const pageProps: PageProps = { plugin, snapshot: tab === 'overview' || tab === 'history' ? snapshot : scopedSnapshot, scope, canPreview: ready && !previewBusy && !plugin.coordinator.isBusy(), t, requestPreview, setTab, onOpenValues: key => setValueKey(key) };
   return <div class="propcraft">
-    <div class="propcraft-topbar"><div class="propcraft-tabs">{TABS.map(key => <button key={key} class={`propcraft-tab ${tab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>{t(TAB_LABEL[key])}</button>)}</div>
+    <div class="propcraft-topbar"><div class="propcraft-tabs">{TABS.map(key => <button key={key} class={`propcraft-tab ${tab === key ? 'is-active' : ''}`} onClick={() => { setValueKey(null); setTab(key); }}>{t(TAB_LABEL[key])}</button>)}</div>
       <div class="propcraft-topbar-actions"><span class="propcraft-status">{status === 'indexing' ? t('overview.indexing') : status === 'stale' ? t('overview.stale') : t('overview.ready')}</span><button class="propcraft-btn" onClick={() => plugin.reindex()}>{t('overview.reindex')}</button></div></div>
     {operation.kind === 'recovery-required' ? <div class="propcraft-warn" role="status">{t('execute.required')} <button class="propcraft-link" onClick={() => setTab('history')}>{t('tab.history')}</button></div> : null}
     {error ? <div class="propcraft-warn" role="alert">{issueText(t, error)} <button class="propcraft-link" onClick={() => setTab('history')}>{t('tab.history')}</button><button class="propcraft-link" onClick={() => plugin.openSettings()}>{t('journal.capacity.settings')}</button><button class="propcraft-link" onClick={() => setError(undefined)}>{t('common.close')}</button></div> : null}
     {tab !== 'overview' && tab !== 'history' ? <ScopeBar query={query} result={scope} snapshot={snapshot} busy={!ready && !scopeError} error={scopeError} onChange={changeScope} plugin={plugin} t={t} /> : null}
     {previewBusy && !preview ? <div role="status">{t('preview.updating')}</div> : null}
     <div class="propcraft-main">
-      {tab === 'overview' ? <Overview {...pageProps} /> : null}{tab === 'properties' ? <PropertyGrid {...pageProps} /> : null}{tab === 'tags' ? <TagGrid {...pageProps} /> : null}{tab === 'bulk' ? <BulkWizard {...pageProps} /> : null}{tab === 'history' ? <History {...pageProps} /> : null}
+      {tab === 'overview' ? <Overview {...pageProps} /> : null}{tab === 'properties' ? (valueKey ? <PropertyValueWorkbench plugin={plugin} snapshot={snapshot} scope={scope} keyName={valueKey} t={t} canPreview={ready && !previewBusy && !plugin.coordinator.isBusy()} requestPreview={requestPreview} onBack={() => setValueKey(null)} /> : <PropertyGrid {...pageProps} />) : null}{tab === 'tags' ? <TagGrid {...pageProps} /> : null}{tab === 'bulk' ? <BulkWizard {...pageProps} /> : null}{tab === 'history' ? <History {...pageProps} /> : null}
     </div>
     {preview ? <PreviewDrawer plan={preview} t={t} plugin={plugin} busy={previewBusy} dataUpdated={preview.snapshotRevision !== snapshot?.revision} onRevise={patches => void revise(patches)} onApply={() => void apply()} onCancel={() => { plugin.planner.discard(preview.id); setPreview(null); }} onRebuild={onlyStale => void rebuild(onlyStale)} /> : null}
     <OperationPanel key={operation.kind === 'result' || operation.kind === 'recovery-result' ? operation.result.transactionId : operation.kind} state={operation} plugin={plugin} t={t} onPreview={view => { if (mounted.current) setPreview(view); else plugin.planner.discard(view.id); }} />

@@ -12,6 +12,8 @@ function describe(operation: ChangeOperation, t: PageProps['t']): string {
     case 'deleteProperty': return `${t('properties.delete')} ${operation.key}`;
     case 'addProperty': return `${t('wizard.title')}: ${operation.key} = ${JSON.stringify(operation.value)}`;
     case 'normalizeDate': return `${t('properties.normalizeDates')}: ${operation.key}`;
+    case 'mapPropertyValues': return t('history.op.mapPropertyValues', { key: operation.key });
+    case 'convertPropertyType': return t('history.op.convertPropertyType', { key: operation.key });
   }
 }
 export function History({ plugin, t }: PageProps) {
