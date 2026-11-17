@@ -2,6 +2,29 @@
 
 Notable changes to PropCraft, grouped by release.
 
+## 0.1.3 — 2026-11-17
+
+### Added
+
+- A property value workbench inside the Properties tab: complete value distribution, actual storage type versus the vault-wide declared type, field and list-member views, special-state summaries, selection, search, paging, and per-value note drill-down.
+- Exact, typed multi-value mapping: map several historical values to a standard value in one preview, replace list members in place with order-preserving target deduplication, and fill missing/null/empty-text/empty-list states with explicit targets, including a standalone fill entry for fully-missing properties.
+- Explicit text assistants (trim, lower/upper case) that only produce visible rules for selected text values and protect link-like strings.
+- Explainable type repair: text → number with representation and precision checks, single-value → list wrapping, literal/newline list splitting with optional trimming, and date normalization with interpretation and value-loss confirmations.
+- Independent per-note confirmations for value representation changes and declared-type mismatches that can be confirmed or withdrawn; required checks and unsatisfied ones are tracked separately.
+- Bilingual (English/Simplified Chinese) interface strings for the workbench, mapping, conversion and new issue explanations.
+
+### Changed
+
+- New value operations only ever change note data; the vault-wide `types.json` declaration is read, never written, and each write re-checks the declaration baseline.
+- New value operations use new operation kinds (`mapPropertyValues`, `convertPropertyType`) so 0.1.2 cannot silently retry a new date/type choice; legacy `normalizeDate` records keep their original structure.
+- Date analysis rejects illegal hours/minutes/seconds and unpreservable time zones or fractions before conversion, sharing one validator across old and new entry points.
+
+### Notes
+
+- YAML comments, quoting and layout may still be reformatted; unaffected values and body text are preserved.
+- Declared types are not migrated: the Properties panel may still show the vault-wide declared type even after note data is changed.
+- Recovery journals remain V2. Unknown operation kinds are read-only and unsupported; downgrading to 0.1.2 cannot restore or retry new value operations.
+
 ## 0.1.2 — 2026-11-14
 
 ### Added

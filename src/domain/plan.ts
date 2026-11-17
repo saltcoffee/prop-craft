@@ -1,9 +1,18 @@
-import type { ChangeOperation, ConflictStrategy, FileChange, FileMeta, MergeStrategy, PropertyValueType, RegionFormat, TextOp } from './models';
-import type { AnalyzedOperation, PreviewDecision } from './preview';
+import type { ChangeOperation, ConflictStrategy, ConvertPropertyTypeOperation, FileChange, FileMeta, MapPropertyValuesOperation, MergeStrategy, PropertyValueType, RegionFormat, TextOp } from './models';
+import type { AnalyzedOperation, PreviewDecision, ValueAnalysis, ValueConfirmation } from './preview';
 import { isValidTag, tagIdentity, stripHash, tagWithHash } from './normalize';
 import { normalizeDateValue } from './date';
 import { hasOwn } from './scope';
 import { OperationError } from './errors';
+import { isTypeCompatible } from './type-config';
+import { analyzeConversion } from './value-conversion';
+import { analyzeValueMapping, compileValueMapping, type CompiledValueMapping } from './value-mapping';
+import { scalarFromRaw, scalarIdentity } from './property-value';
+
+export interface ValueAnalyzeContext {
+  mapping?: CompiledValueMapping;
+  declaration?: { kind: 'known'; type: string } | { kind: 'absent' } | { kind: 'unavailable' };
+}
 
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -111,7 +120,55 @@ export function planNormalizeDate(file: FileMeta, key: string, target: 'date' | 
   const after = cloneFrontmatter(file); after[key] = parsed.iso;
   return fmChange(file, after);
 }
-export function analyzeOperation(file: FileMeta, operation: ChangeOperation, decision?: PreviewDecision): AnalyzedOperation {
+const CONFIRMATION_FLAG: Record<ValueConfirmation, 'valueLossConfirmed' | 'declaredTypeMismatchConfirmed' | 'dateInterpretationConfirmed'> = {
+  'value-loss': 'valueLossConfirmed',
+  'declared-type-mismatch': 'declaredTypeMismatchConfirmed',
+  'date-interpretation': 'dateInterpretationConfirmed',
+};
+function isConfirmed(confirmation: ValueConfirmation, decision?: PreviewDecision): boolean {
+  return Boolean(decision?.[CONFIRMATION_FLAG[confirmation]]);
+}
+function analyzeConversionForFile(file: FileMeta, operation: ConvertPropertyTypeOperation): ValueAnalysis {
+  const fm = file.rawFrontmatter;
+  if (!hasOwn(fm, operation.key)) return { outcome: 'noop', ruleIds: [], issues: [{ code: 'source-missing' }], requiredConfirmations: [] };
+  const raw = fm[operation.key];
+  const scalar = scalarFromRaw(raw);
+  const selected = new Set(operation.sources.map(scalarIdentity));
+  if (!scalar || !selected.has(scalarIdentity(scalar))) {
+    return { outcome: 'noop', ruleIds: [], issues: [{ code: 'value-source-unselected' }], requiredConfirmations: [] };
+  }
+  return analyzeConversion(raw, operation.conversion);
+}
+function finishValue(file: FileMeta, operation: { key: string }, analysis: ValueAnalysis, decision: PreviewDecision | undefined, context: ValueAnalyzeContext | undefined): AnalyzedOperation {
+  const result: AnalyzedOperation = { state: 'noop', conflict: false, allowedStrategies: [], valueAnalysis: analysis };
+  if (file.metadataStatus === 'unavailable') return { ...result, state: 'blocked', reason: 'metadata-stale' };
+  const required = [...analysis.requiredConfirmations];
+  const issues = [...analysis.issues];
+  const hasCandidate = analysis.outcome !== 'unconvertible' && analysis.outcome !== 'noop' && analysis.candidate !== undefined;
+  if (hasCandidate) {
+    const declaration = context?.declaration;
+    if (declaration?.kind === 'unavailable') return { ...result, state: 'blocked', reason: 'type-config-unsupported' };
+    if (declaration?.kind === 'known' && !isTypeCompatible(declaration.type, analysis.candidate)) {
+      if (!required.includes('declared-type-mismatch')) required.push('declared-type-mismatch');
+      if (!issues.some(item => item.code === 'declared-type-mismatch')) issues.push({ code: 'declared-type-mismatch' });
+    }
+    const after = cloneFrontmatter(file);
+    after[operation.key] = analysis.candidate;
+    result.change = fmChange(file, after);
+  }
+  result.valueAnalysis = { ...analysis, requiredConfirmations: required, issues };
+  if (analysis.outcome === 'unconvertible') { result.state = 'blocked'; result.reason = issues[0]?.code ?? 'value-unsupported'; return result; }
+  if (analysis.outcome === 'noop' || !result.change) { result.state = 'noop'; result.reason = issues[0]?.code ?? 'no-change'; return result; }
+  if (required.some(confirmation => !isConfirmed(confirmation, decision))) {
+    result.state = 'conflict';
+    result.conflict = true;
+    result.reason = issues[0]?.code ?? 'declared-type-mismatch';
+    return result;
+  }
+  result.state = 'ready';
+  return result;
+}
+export function analyzeOperation(file: FileMeta, operation: ChangeOperation, decision?: PreviewDecision, context?: ValueAnalyzeContext): AnalyzedOperation {
   const result: AnalyzedOperation = { state: 'noop', conflict: false, allowedStrategies: [] };
   if (file.frontmatterParseError) return { ...result, state: 'blocked', reason: 'frontmatter-invalid' };
   const fm = file.rawFrontmatter;
@@ -143,15 +200,30 @@ export function analyzeOperation(file: FileMeta, operation: ChangeOperation, dec
       const value = fm[operation.key];
       if (!hasOwn(fm, operation.key)) return { ...result, reason: 'source-missing' };
       if (typeof value !== 'string') return { ...result, reason: 'date-non-text' };
-      const parsed = normalizeDateValue(value, operation.target, operation.regionFormat);
-      if (!parsed.ok || !parsed.iso) return { ...result, reason: 'date-unrecognized' };
-      if (value === parsed.iso) return { ...result, reason: 'already-normalized' };
-      if (parsed.ambiguous) {
-        result.ambiguousDate = parsed.iso;
-        if (!decision?.dateInterpretationConfirmed) return { ...result, state: 'conflict', reason: 'date-ambiguous' };
+      // Share the full risk analysis with the workbench conversion so the legacy entry cannot
+      // silently drop time/seconds, add 00:00, or assume a two-digit year.
+      const analysis = analyzeConversion(value, { kind: 'normalize-date', target: operation.target, regionFormat: operation.regionFormat });
+      result.valueAnalysis = analysis;
+      if (analysis.outcome === 'unconvertible') return { ...result, state: 'blocked', reason: analysis.issues[0]?.code ?? 'date-unrecognized' };
+      if (analysis.outcome === 'noop') return { ...result, reason: analysis.issues[0]?.code ?? 'already-normalized' };
+      if (analysis.requiredConfirmations.includes('date-interpretation')) result.ambiguousDate = String(analysis.candidate ?? '');
+      result.change = planNormalizeDate(file, operation.key, operation.target, operation.regionFormat) ?? undefined;
+      if (!result.change) return { ...result, reason: 'already-normalized' };
+      const unmet = analysis.requiredConfirmations.filter(confirmation => !isConfirmed(confirmation, decision));
+      if (unmet.length) {
+        result.state = 'conflict';
+        result.conflict = true;
+        result.reason = unmet.includes('date-interpretation') ? 'date-ambiguous' : 'date-value-loss';
+        return result;
       }
-      result.change = planNormalizeDate(file, operation.key, operation.target, operation.regionFormat) ?? undefined; break;
+      return { ...result, state: 'ready', reason: undefined };
     }
+    case 'mapPropertyValues': {
+      const compiled = context?.mapping ?? compileValueMapping(operation as MapPropertyValuesOperation);
+      return finishValue(file, operation, analyzeValueMapping(file, operation as MapPropertyValuesOperation, compiled), decision, context);
+    }
+    case 'convertPropertyType':
+      return finishValue(file, operation, analyzeConversionForFile(file, operation as ConvertPropertyTypeOperation), decision, context);
   }
   return result.change ? { ...result, state: 'ready', reason: undefined } : result;
 }

@@ -11,4 +11,5 @@ export interface PageProps {
   t: Translate;
   requestPreview: (operation: ChangeOperation) => Promise<void>;
   setTab: (tab: TabKey) => void;
+  onOpenValues?: (key: string) => void;
 }

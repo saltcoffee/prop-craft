@@ -23,6 +23,7 @@ export function PreviewDrawer({ plan, t, plugin, busy, dataUpdated, onApply, onC
       <div>{t('preview.counts', { ...plan.summary })}</div>
       {plan.summary.conflicts ? <div class="propcraft-warn">{t('preview.conflict', { count: plan.summary.conflicts })}</div> : null}
       <div class="propcraft-muted">{t(`preview.type.${summary.kind}`, { key: summary.targetKey ?? '', type: summary.type ?? '' })}</div>
+      {plan.valueSummary ? <div class="propcraft-muted">{t('preview.valueSummary', { ready: plan.valueSummary.ready, confirm: plan.valueSummary.needsConfirmation, unconvertible: plan.valueSummary.unconvertible, noop: plan.valueSummary.noop })}</div> : null}
       <div class="propcraft-muted">{t('preview.yaml')}</div>
       {plan.operation.kind === 'renameTag' || plan.operation.kind === 'mergeTag' ? <div>{t('preview.exactTag')}</div> : null}
       {plan.operation.kind === 'normalizeDate' ? <div>{t('preview.dateRegion', { target: plan.operation.target, region: plan.operation.regionFormat === 'MDY' ? 'MM/DD/YYYY' : plan.operation.regionFormat === 'DMY' ? 'DD/MM/YYYY' : 'YYYY/MM/DD' })}</div> : null}
@@ -37,7 +38,7 @@ export function PreviewDrawer({ plan, t, plugin, busy, dataUpdated, onApply, onC
       <button class="propcraft-btn" disabled={busy || !selectable.length} onClick={() => onRevise(selectable.map(item => ({ path: item.path, beforeHash: item.decision.beforeHash, selected: true })))}>{t('preview.selectVisible', { count: selectable.length })}</button>
       <button class="propcraft-btn" disabled={busy || !selectable.length} onClick={() => onRevise(selectable.map(item => ({ path: item.path, beforeHash: item.decision.beforeHash, selected: false })))}>{t('preview.deselectVisible')}</button>
     </div>
-    {plan.items.some(item => item.conflict) ? <div class="propcraft-toolbar">
+    {plan.items.some(item => item.allowedStrategies.length > 0) ? <div class="propcraft-toolbar">
       <select class="propcraft-input" aria-label={t('preview.decision.batch')} value={strategy} onChange={event => setStrategy(event.currentTarget.value as MergeStrategy)}>{(['keep-target', 'keep-source', 'merge-list', 'skip'] as const).map(value => <option value={value} key={value}>{t(`preview.decision.${value}`)}</option>)}</select>
       <label class="propcraft-check"><input type="checkbox" checked={override} onChange={event => setOverride(event.currentTarget.checked)} />{t('preview.decision.override')}</label>
       <button class="propcraft-btn" disabled={busy || !batchConflicts.length} onClick={() => onRevise(batchConflicts.map(item => ({ path: item.path, beforeHash: item.decision.beforeHash, merge: strategy, selected: strategy !== 'skip', individual: false })))}>{t('preview.decision.batch')} ({batchConflicts.length})</button>

@@ -1,9 +1,11 @@
 import type { ChangeOperation, FileMeta } from '../domain/models';
-import type { AnalyzedOperation, PreparedChange, PreparedPlan, PreviewDecision, PreviewDecisionPatch, PreviewItem, PreviewView } from '../domain/preview';
+import type { AnalyzedOperation, PreparedChange, PreparedPlan, PreviewDecision, PreviewDecisionPatch, PreviewItem, PreviewView, ValueSummary } from '../domain/preview';
 import { summarizePreview } from '../domain/preview';
 import { inBase, matchScope, validateScope, type ScopeQuery } from '../domain/scope';
 import { validateOperation } from '../domain/operation';
-import { analyzeOperation } from '../domain/plan';
+import { analyzeOperation, type ValueAnalyzeContext } from '../domain/plan';
+import { compileValueMapping, type CompiledValueMapping } from '../domain/value-mapping';
+import type { DeclarationInfo } from '../domain/value-distribution';
 import { diffForFile } from '../domain/diff';
 import { OperationError, issueCode } from '../domain/errors';
 import { isTypeCompatible } from '../domain/type-config';
@@ -18,6 +20,23 @@ import { fileMeta } from './file-meta';
 import type { TypeMigration } from './TypeMigration';
 
 export interface PreviewRequest { scope: ScopeQuery; operation: ChangeOperation }
+export type PropertyWritePolicy = 'strict-declaration' | 'confirm-data-only';
+/** Declared-type mismatch is confirmable only for new value operations. */
+export function propertyWritePolicy(operation: ChangeOperation): PropertyWritePolicy {
+  return operation.kind === 'mapPropertyValues' || operation.kind === 'convertPropertyType' ? 'confirm-data-only' : 'strict-declaration';
+}
+function summarizeValues(items: readonly PreviewItem[]): ValueSummary {
+  const summary: ValueSummary = { ready: 0, needsConfirmation: 0, unconvertible: 0, noop: 0 };
+  for (const item of items) {
+    const analysis = item.valueAnalysis;
+    if (!analysis) continue;
+    if (analysis.outcome === 'unconvertible') summary.unconvertible++;
+    else if (analysis.outcome === 'noop') summary.noop++;
+    else if (item.state === 'ready') summary.ready++;
+    else if (item.state === 'conflict') summary.needsConfirmation++;
+  }
+  return summary;
+}
 interface Capture { path: string; beforeContent: string; beforeHash: string; file?: FileMeta; decoded?: DecodedNote; issue?: import('../domain/errors').IssueCode }
 interface Session {
   view: PreviewView;
@@ -27,6 +46,8 @@ interface Session {
   prepared: PreparedChange[];
   settingsFingerprint: string;
   types: Awaited<ReturnType<TypeMigration['plan']>>;
+  compiledMapping?: CompiledValueMapping;
+  declaration?: DeclarationInfo;
   consumed: boolean;
   busy: boolean;
   stale: Set<string>;
@@ -44,6 +65,10 @@ export class ChangePlanner {
     const manual = new Set(scope.manuallyExcludedPaths), allowed = options.paths ? new Set(options.paths) : null;
     const paths = this.vault.getMarkdownFiles().map(file => file.path).filter(path => inBase(path, scope.base) && !shouldExclude(path, settings) && (!allowed || allowed.has(path))).sort();
     const types = await this.typeMigration.plan(operation), captures: Capture[] = [];
+    const compiledMapping = operation.kind === 'mapPropertyValues' ? compileValueMapping(operation) : undefined;
+    const declaration: DeclarationInfo | undefined = operation.kind === 'mapPropertyValues' || operation.kind === 'convertPropertyType'
+      ? (types.snapshot.kind === 'unsupported' ? { kind: 'unavailable' } : types.targetType ? { kind: 'known', type: types.targetType } : { kind: 'absent' })
+      : undefined;
     let unknown = 0, matched = 0, manuallyExcluded = 0;
     for (let index = 0; index < paths.length; index += 16) {
       signal?.throwIfAborted();
@@ -79,7 +104,7 @@ export class ChangePlanner {
     const id = `pc_${crypto.randomUUID().replace(/-/g, '')}`;
     const view: PreviewView = { id, revision: 1, createdAt: Date.now(), operation, items: [], summary: summarizePreview([]),
       snapshotRevision: this.store.get()?.revision ?? 0, scopeSummary: { base: scope.base, conditions: scope.conditions, effective: matched - manuallyExcluded, matched, manual: manuallyExcluded, unknown }, typeSummary: types.summary, retryOf: options.retryOf };
-    const session: Session = { view, request: { scope, operation }, captures, decisions: new Map(), prepared: [], settingsFingerprint: fingerprint, types, consumed: false, busy: false, stale: new Set() };
+    const session: Session = { view, request: { scope, operation }, captures, decisions: new Map(), prepared: [], settingsFingerprint: fingerprint, types, compiledMapping, declaration, consumed: false, busy: false, stale: new Set() };
     for (const capture of captures) session.decisions.set(capture.path, { path: capture.path, beforeHash: capture.beforeHash, selected: true });
     await this.calculate(session);
     signal?.throwIfAborted();
@@ -88,13 +113,16 @@ export class ChangePlanner {
   }
   private async calculate(session: Session): Promise<void> {
     const items: PreviewItem[] = [], prepared: PreparedChange[] = [];
+    const isValueOp = session.request.operation.kind === 'mapPropertyValues' || session.request.operation.kind === 'convertPropertyType';
+    const context: ValueAnalyzeContext = { mapping: session.compiledMapping, declaration: session.declaration };
     for (const capture of session.captures) {
       const decision = session.decisions.get(capture.path)!;
       const item: PreviewItem = { path: capture.path, state: 'blocked', disposition: 'blocked', decision: { ...decision }, conflict: false, allowedStrategies: [], diffs: [], reason: capture.issue };
       if (capture.file && capture.decoded && !capture.issue) {
-        const analyzed: AnalyzedOperation = analyzeOperation(capture.file, session.request.operation, decision);
+        const analyzed: AnalyzedOperation = analyzeOperation(capture.file, session.request.operation, decision, isValueOp ? context : undefined);
         item.state = analyzed.state; item.reason = analyzed.reason; item.conflict = analyzed.conflict;
         item.allowedStrategies = analyzed.allowedStrategies; item.ambiguousDate = analyzed.ambiguousDate;
+        item.valueAnalysis = analyzed.valueAnalysis;
         if (analyzed.conflict && 'from' in session.request.operation && 'to' in session.request.operation) {
           const { from, to } = session.request.operation;
           item.conflictValues = { source: `${from}: ${JSON.stringify(capture.file.rawFrontmatter[from])}`, target: `${to}: ${JSON.stringify(capture.file.rawFrontmatter[to])}` };
@@ -103,7 +131,8 @@ export class ChangePlanner {
         if (analyzed.change) {
           const targetKey = 'to' in session.request.operation ? session.request.operation.to : 'key' in session.request.operation ? session.request.operation.key : undefined;
           const propertyWrite = session.request.operation.kind !== 'renameTag' && session.request.operation.kind !== 'mergeTag' && session.request.operation.kind !== 'deleteProperty';
-          if (propertyWrite && (session.types.snapshot.kind === 'unsupported' || targetKey && !isTypeCompatible(session.types.targetType, analyzed.change.afterFrontmatter[targetKey]))) {
+          // New value operations resolved declaration policy inside analysis; legacy writes stay strict.
+          if (!isValueOp && propertyWrite && (session.types.snapshot.kind === 'unsupported' || targetKey && !isTypeCompatible(session.types.targetType, analyzed.change.afterFrontmatter[targetKey]))) {
             item.state = 'blocked'; item.disposition = 'blocked'; item.reason = session.types.snapshot.kind === 'unsupported' ? 'type-config-unsupported' : 'type-incompatible';
           } else {
             const encoded = this.codec.compose(capture.beforeContent, capture.decoded, analyzed.change);
@@ -111,7 +140,7 @@ export class ChangePlanner {
             else {
               item.diffs = diffForFile(analyzed.change, capture.beforeContent);
               if (encoded.content === capture.beforeContent) { item.state = 'noop'; item.disposition = 'noop'; item.reason = 'no-change'; }
-              else if (decision.selected && !session.stale.has(capture.path)) prepared.push({ path: capture.path, beforeContent: capture.beforeContent, beforeHash: capture.beforeHash,
+              else if (analyzed.state === 'ready' && decision.selected && !session.stale.has(capture.path)) prepared.push({ path: capture.path, beforeContent: capture.beforeContent, beforeHash: capture.beforeHash,
                 afterContent: encoded.content, expectedAfterHash: await sha256Hex(encoded.content), decision: { ...decision } });
             }
           }
@@ -122,7 +151,8 @@ export class ChangePlanner {
       items.push(item);
     }
     session.prepared = prepared;
-    session.view = { ...session.view, items, summary: summarizePreview(items), typeSummary: !prepared.length && session.types.summary.kind === 'add' ? { ...session.types.summary, kind: 'none' } : session.types.summary };
+    const valueSummary = items.some(item => item.valueAnalysis) ? summarizeValues(items) : undefined;
+    session.view = { ...session.view, items, summary: summarizePreview(items), typeSummary: !prepared.length && session.types.summary.kind === 'add' ? { ...session.types.summary, kind: 'none' } : session.types.summary, ...(valueSummary ? { valueSummary } : {}) };
   }
   async revisePreview(id: string, expectedRevision: number, patches: readonly PreviewDecisionPatch[]): Promise<PreviewView> {
     const session = this.session(id, expectedRevision);
@@ -131,9 +161,16 @@ export class ChangePlanner {
     for (const patch of patches) {
       const previous = decisions.get(patch.path);
       if (!previous || previous.beforeHash !== patch.beforeHash || patch.selected !== undefined && typeof patch.selected !== 'boolean'
-        || patch.dateInterpretationConfirmed !== undefined && typeof patch.dateInterpretationConfirmed !== 'boolean') throw new OperationError('invalid-decision');
+        || patch.dateInterpretationConfirmed !== undefined && typeof patch.dateInterpretationConfirmed !== 'boolean'
+        || patch.valueLossConfirmed !== undefined && typeof patch.valueLossConfirmed !== 'boolean'
+        || patch.declaredTypeMismatchConfirmed !== undefined && typeof patch.declaredTypeMismatchConfirmed !== 'boolean') throw new OperationError('invalid-decision');
       const item = session.view.items.find(item => item.path === patch.path)!;
       if (patch.merge !== undefined && !item.allowedStrategies.includes(patch.merge)) throw new OperationError('invalid-decision');
+      // Confirmations may only toggle requirements that this candidate actually carries, in either direction.
+      const required = item.valueAnalysis?.requiredConfirmations;
+      if (patch.valueLossConfirmed !== undefined && !required?.includes('value-loss')) throw new OperationError('invalid-decision');
+      if (patch.declaredTypeMismatchConfirmed !== undefined && !required?.includes('declared-type-mismatch')) throw new OperationError('invalid-decision');
+      if (patch.dateInterpretationConfirmed !== undefined && required && !required.includes('date-interpretation')) throw new OperationError('invalid-decision');
       decisions.set(patch.path, { ...previous, ...patch });
     }
     session.busy = true;

@@ -23,6 +23,19 @@ export class TypeMigration {
   getCached(): Map<string, string> { return new Map(this.cached); }
   async plan(operation: ChangeOperation): Promise<{ snapshot: TypeDeclarations; summary: TypeSummary; patch?: TypePatch; targetType?: string; baseline?: string | null }> {
     if (operation.kind === 'renameTag' || operation.kind === 'mergeTag' || operation.kind === 'deleteProperty') return { snapshot: { kind: 'ready', raw: null, declarations: new Map() }, summary: { kind: 'none' } };
+    if (operation.kind === 'mapPropertyValues' || operation.kind === 'convertPropertyType') {
+      // New value operations only read declarations and never produce a TypePatch.
+      const snapshot = await this.loadDeclarations();
+      if (snapshot.kind === 'unsupported') return { snapshot, summary: { kind: 'unsupported' } };
+      const targetKey = operation.key.toLowerCase();
+      const existing = snapshot.declarations.get(targetKey);
+      return {
+        snapshot,
+        targetType: existing,
+        baseline: snapshot.raw,
+        summary: existing ? { kind: 'existing', targetKey, type: existing } : { kind: 'none', targetKey },
+      };
+    }
     const snapshot = await this.loadDeclarations();
     if (snapshot.kind === 'unsupported') return { snapshot, summary: { kind: 'unsupported' } };
     const targetKey = ('to' in operation ? operation.to : operation.key).toLowerCase();
