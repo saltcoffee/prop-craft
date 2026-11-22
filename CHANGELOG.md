@@ -2,6 +2,30 @@
 
 Notable changes to PropCraft, grouped by release.
 
+## 0.1.4 — 2026-11-22
+
+### Added
+
+- **Tag hierarchy tree & branch migration** (`migrateTagBranch`) inside the Tags tab: browse real tags and virtual parent nodes with exact direct note counts and deduplicated branch note counts, click counts to drill down into notes, and migrate either a single tag or an entire descendant branch while preserving original-case suffixes.
+- **Read-only vault-wide collision report** on branch migration previews: displays in-scope freshly checked collisions, outside-scope / excluded index matches with snapshot revision and timestamp, and unknown/unindexed coverage without expanding the writable file set.
+- **Exact tag-to-property migration** (`convertTagsToProperty`): map explicit source tags to a single typed property value (text, number, boolean) or append into a list in visible rule order, with per-note conflict resolution, filtered batch resolution that respects individual exceptions, and independent vault-declaration mismatch confirmations.
+- **Optional source tag removal** (off by default): removes only source tags represented by the final property value across `tags`, `tag`, and body occurrences in the same single per-note write; unadopted, skipped, or failed sources are kept.
+- **Joint candidate verification**: candidate rewrites are composed, decoded, and re-parsed for body and frontmatter tags before becoming eligible; unexpected tag activations or token changes block the entire note rather than leaving partial writes.
+- Bilingual (English/Simplified Chinese) labels, error explanations, and history summaries for tag tree and tag migration workflows.
+
+### Fixed
+
+- Replaced global `setTimeout` / `clearTimeout` calls in `src/` with `window.setTimeout` / `window.clearTimeout` and matching timer handle types for Obsidian popout-window compatibility.
+- Removed unnecessary type assertions in domain journal, operation, and plan modules and tightened `unknown` narrowing in tag-list rewriting, property list appending, and value-mapping fill validation.
+- Enabled type-aware ESLint rules (`no-unnecessary-type-assertion`, `no-unsafe-return`, `no-unsafe-assignment`, `no-unsafe-argument`) and global timer restrictions in `eslint.config.mjs`.
+
+### Notes
+
+- Body tag deduplication is logical (note counts and tag sets deduplicate by identity), not cross-context physical removal: existing target tags elsewhere in the note body are preserved.
+- Removing all tags from a `tags`/`tag` container leaves the key explicitly set to `[]`; YAML comments, quoting, and layout may still be reformatted.
+- New tag migration operations (`migrateTagBranch`, `convertTagsToProperty`) use V2 recovery journals with full-note snapshots; downgrading to 0.1.3 or earlier cannot retry or restore these new operation kinds.
+- Query, template, and script references (such as `.base` or Dataview blocks) are not automatically checked or rewritten.
+
 ## 0.1.3 — 2026-11-17
 
 ### Added

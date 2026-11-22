@@ -120,8 +120,8 @@ export function PropertyValueWorkbench({ plugin, snapshot, scope, keyName, t, ca
         : distribution.countedNoteCount === 0 && distribution.unreadablePaths.length === 0 ? <div class="propcraft-empty">{t('values.empty')}</div>
           : <div>
             <div class="propcraft-toolbar">
-              <input class="propcraft-input" aria-label={t('values.search')} placeholder={t('values.search')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(PAGE); }} />
-              <select class="propcraft-input" aria-label={t('values.typeFilter')} value={typeFilter} onChange={event => { setTypeFilter(event.currentTarget.value); setLimit(PAGE); }}>
+              <input class="propcraft-input" placeholder={t('values.search')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(PAGE); }} />
+              <select class="propcraft-input" value={typeFilter} onChange={event => { setTypeFilter(event.currentTarget.value); setLimit(PAGE); }}>
                 <option value="all">{t('values.type.all')}</option>
                 {TYPE_OPTIONS.map(type => <option value={type} key={type}>{type}</option>)}
               </select>
@@ -131,7 +131,7 @@ export function PropertyValueWorkbench({ plugin, snapshot, scope, keyName, t, ca
             {visible.length === 0 ? <div class="propcraft-empty">{t('values.noMatch')}</div> : <div class="propcraft-table-wrap"><table class="propcraft-table"><thead><tr>
               <th scope="col">{t('values.col.select')}</th><th scope="col">{t('values.col.value')}</th><th scope="col">{t('values.col.type')}</th><th scope="col" class="num">{t('values.col.notes')}</th><th scope="col">{t('values.col.open')}</th>
             </tr></thead><tbody>{visible.slice(0, limit).map(bucket => <tr key={bucket.id}>
-              <td><input type="checkbox" aria-label={`${t('values.col.select')} ${displayValue(bucket.raw)}`} checked={selected.has(bucket.id)} onChange={() => toggle(bucket.id)} /></td>
+              <td><input type="checkbox" checked={selected.has(bucket.id)} onChange={() => toggle(bucket.id)} /></td>
               <td class="propcraft-path">{displayValue(bucket.raw)}</td>
               <td>{bucket.actualType}</td>
               <td class="num"><button class="propcraft-link" onClick={() => setDrilldown({ title: t('values.note.title', { value: displayValue(bucket.raw) }), paths: bucket.notePaths })}>{bucket.notePaths.length}</button></td>

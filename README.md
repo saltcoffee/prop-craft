@@ -17,7 +17,8 @@ PropCraft turns that cleanup into sorting a spreadsheet. Open the workbench, see
 - **See every value.** Open a property to inspect its complete value distribution, actual storage type versus the vault-wide declaration, and list members, then drill into any value's notes.
 - **Map many values at once.** Map `已读` / `finished` / `Done ` to one standard value, replace list members in place, fill missing or empty values, and repair `"5"` → `5`, wrap or split lists, and normalize dates with an explanation for every exception.
 - **Spot the mess.** Orphan properties used only once, and suspected-duplicate tags or keys (case, singular/plural, separators, typos) are grouped and highlighted.
-- **Drag to merge.** Drag `#reading` onto `#read` and let go. A preview lists every note that will change; confirm once and PropCraft rewrites them in the background.
+- **Drag to merge or migrate a tag tree.** Browse tags as a flat list or a hierarchy tree showing real tags, virtual parents, direct note counts, and deduplicated branch note counts. Rename a single tag or migrate an entire branch (`#domain/tech/...` → `#topic/tech/...`) with full mapping and vault-wide read-only collision previews.
+- **Convert tags into properties.** Map exact source tags to a typed scalar property (`#status/done` → `status: done`) or append into a list property in rule order. Source tags are kept by default; when removal is enabled, only tags represented by the final property value are removed in the same single-note write, while unadopted or conflicting sources remain intact.
 - **Rename or merge fields.** Collapse `author` / `Author` / `writer` into one property, choosing how conflicting values are combined.
 - **Bulk add properties.** Give every note in a folder a field such as `status: unread`, all from a guided wizard.
 - **Normalize dates.** Turn `2024/1/5`, `Jan 5, 2024`, and `2024年1月5日` into a consistent `2024-01-05`.
@@ -39,13 +40,13 @@ Requires **desktop** Obsidian **1.8.7 or later**. Mobile devices are not support
 
 PropCraft only changes the metadata and tags you select. It does not rewrite note body text other than inline `#tags`, and it skips notes whose properties cannot be parsed instead of overwriting them. Property actions protect reserved fields such as `tags`, `aliases`, and `cssclasses`; tag actions update the matching frontmatter tags and body tags together. Notes excluded by settings are never written.
 
-YAML comments, quoting and layout may change during serialization. Unknown or unsafe YAML is blocked. Tag matching ignores case but keeps `_` and `-` distinct; including subtags in a filter does not rename a tag tree.
+YAML comments, quoting and layout may change during serialization. Unknown or unsafe YAML is blocked. Tag matching ignores case but keeps `_` and `-` distinct; the scope filter's "include descendants" toggle is independent from a tag migration's "this tag only / include all descendants" mode. Frontmatter deduplicates rewritten target tags by keeping the earliest member, while body occurrences are rewritten in place without deleting existing target tags in other contexts. Removing all tags from a frontmatter `tags`/`tag` container leaves `[]`. Query, template, and script references are not automatically checked or updated.
 
 History limits are checked before any note or type write, including UTF-8 recovery materials and state capacity. At the limit, review History and explicitly remove one eligible completed record, or adjust the limits in Settings. Unfinished and partly recovered records are protected; nothing is automatically pruned. A write with uncertain outcome must be reconciled before retrying. Type dependency checks read metadata across the vault, including excluded notes, without writing those notes.
 
 If an initial state file is missing, History can confirm the checked state without content writes only when all notes match their recorded originals and the type addition needs no recovery. Damaged state files remain read-only.
 
-Upgrading preserves 0.1.1 history. Legacy records without a trustworthy after-content hash remain read-only for changed notes, and do not contain recoverable type snapshots. Recovery of new V2 transactions requires PropCraft 0.1.2 or later; downgrading does not provide V2 undo.
+Upgrading preserves 0.1.1–0.1.3 history. Legacy records without a trustworthy after-content hash remain read-only for changed notes, and do not contain recoverable type snapshots. Recovery of V2 transactions requires a version that recognizes the operation kind (0.1.4+ for tag branch migration and tag-to-property conversion); downgrading does not provide recovery or retry for newer operation kinds.
 
 ## Installation
 

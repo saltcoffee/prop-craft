@@ -1,10 +1,14 @@
-import { parseDocument } from 'yaml';
+import { parseDocument, stringify } from 'yaml';
 import { getFrontMatterInfo, parseYaml, stringifyYaml } from 'obsidian';
 import { applyTextOps, deepEqual } from '../domain/plan';
 import { isYamlValue } from '../domain/operation';
 import { issueCode } from '../domain/errors';
 import type { FileChange } from '../domain/models';
 import type { DecodedNote, DecodedNoteResult, EncodedNoteResult, NoteCodecPort } from '../ports/NoteCodecPort';
+
+function containsNegativeZero(value: unknown): boolean {
+  return Object.is(value, -0) || (value !== null && typeof value === 'object' && Object.values(value).some(containsNegativeZero));
+}
 
 export class ObsidianNoteCodec implements NoteCodecPort {
   decode(source: string): DecodedNoteResult {
@@ -30,8 +34,11 @@ export class ObsidianNoteCodec implements NoteCodecPort {
       if (ops.some(op => op.start < decoded.bodyStart)) return { ok: false, code: 'metadata-stale' };
       let result = applyTextOps(source, ops);
       if (!deepEqual(change.beforeFrontmatter, change.afterFrontmatter)) {
-        if (!isYamlValue(change.afterFrontmatter)) return { ok: false, code: 'frontmatter-invalid' };
-        const yaml = stringifyYaml(change.afterFrontmatter).replace(/\r?\n/g, decoded.newline);
+        const frontmatter = change.afterFrontmatter;
+        if (!isYamlValue(frontmatter)) return { ok: false, code: 'frontmatter-invalid' };
+        // Obsidian's serializer writes -0 as 0. The bundled encoder preserves its sign.
+        const encoded = containsNegativeZero(frontmatter) ? stringify(frontmatter, { compat: 'yaml-1.1' }) : stringifyYaml(frontmatter);
+        const yaml = encoded.replace(/\r?\n/g, decoded.newline);
         const { newline } = decoded;
         const block = `---${newline}${yaml.endsWith(newline) ? yaml : yaml + newline}---${newline}`;
         result = decoded.bom + block + result.slice(decoded.bodyStart);

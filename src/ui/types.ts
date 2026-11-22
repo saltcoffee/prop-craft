@@ -6,6 +6,7 @@ export type TabKey = 'overview' | 'properties' | 'tags' | 'bulk' | 'history';
 export interface PageProps {
   plugin: PropCraftPlugin;
   snapshot: VaultSnapshot | null;
+  sourceSnapshot?: VaultSnapshot | null;
   scope: ScopeResult | null;
   canPreview: boolean;
   t: Translate;

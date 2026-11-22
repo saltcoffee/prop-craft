@@ -1,9 +1,11 @@
 import { en012 } from './v012';
 import { en013 } from './v013';
+import { en014 } from './v014';
 
 export const en = {
   ...en012,
   ...en013,
+  ...en014,
   pluginName: 'PropCraft',
   commandOpen: 'Open PropCraft',
   commandRebuild: 'Rebuild PropCraft index',

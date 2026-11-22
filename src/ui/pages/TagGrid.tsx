@@ -1,7 +1,12 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { DuplicateGroup, DuplicateReason, TagStat } from '../../domain/models';
+import type { TagId, TagTreeNode, TagTreeView } from '../../domain/tag-tree';
 import type { TextKey } from '../../i18n';
-import { isValidTag, tagWithHash } from '../../domain/normalize';
+import { tagIdentity, tagWithHash } from '../../domain/normalize';
+import { TagTree } from '../components/TagTree';
+import { TagNoteList } from '../components/TagNoteList';
+import { TagBranchEditor } from '../components/TagBranchEditor';
+import { TagPropertyEditor } from '../components/TagPropertyEditor';
 import type { PageProps } from '../types';
 
 const REASON_LABEL: Record<DuplicateReason, TextKey> = {
@@ -18,32 +23,95 @@ function originLabel(t: PageProps['t'], origin: TagStat['origin']): string {
   return t('tags.origin.both');
 }
 
-export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: PageProps) {
+export function TagGrid({ snapshot, sourceSnapshot, scope, t, plugin, requestPreview, canPreview }: PageProps) {
+  const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
   const [search, setSearch] = useState('');
   const [duplicatesOnly, setDuplicatesOnly] = useState(false);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
+  const [tree, setTree] = useState<TagTreeView | null>(null);
+  const [treeBusy, setTreeBusy] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<TagId>>(new Set());
+  const [drillDown, setDrillDown] = useState<{ title: string; paths: readonly string[] } | null>(null);
+  const [branchEditor, setBranchEditor] = useState<{ node: TagTreeNode; includeDescendants: boolean; targetPrefill?: string } | null>(null);
+  const [propertyEditor, setPropertyEditor] = useState<{ nodes: readonly TagTreeNode[]; branchLabel?: string } | null>(null);
+  const treeRequest = useRef(0);
+
+  useEffect(() => {
+    if (!sourceSnapshot || !scope || sourceSnapshot.revision !== scope.snapshotRevision) {
+      setTree(null);
+      return;
+    }
+    const abort = new AbortController();
+    const requestId = ++treeRequest.current;
+    setTreeBusy(true);
+    void plugin.tagWorkbenchService.analyze(sourceSnapshot, scope, { requestId, signal: abort.signal }).then(result => {
+      if (abort.signal.aborted || requestId !== treeRequest.current) return;
+      setTree(result);
+      setSelectedIds(current => {
+        const next = new Set<TagId>();
+        for (const id of current) {
+          const node = result.nodes.get(id);
+          if (node && !node.virtual) next.add(id);
+        }
+        return next;
+      });
+      setTreeBusy(false);
+    }).catch(() => {
+      if (!abort.signal.aborted && requestId === treeRequest.current) setTreeBusy(false);
+    });
+    return () => { abort.abort(); };
+  }, [sourceSnapshot, scope, plugin]);
 
   if (!snapshot) return <div class="propcraft-empty">{t('notice.indexing')}</div>;
 
-  const merge = (from: string, to: string, kind: 'mergeTag' | 'renameTag' = 'mergeTag') => {
-    to = tagWithHash(to);
-    if (!isValidTag(to)) {
-      plugin.notify(t('tags.invalidTarget'));
-      return;
-    }
-    if (from === to) return;
-    if (canPreview) void requestPreview({ kind, from, to });
+  const fallbackTree = (): TagTreeView => ({
+    requestId: 0,
+    snapshotRevision: snapshot.revision,
+    scopeFingerprint: scope?.queryFingerprint ?? '',
+    settingsFingerprint: scope?.settingsFingerprint ?? '',
+    effectiveNoteCount: snapshot.totals.noteCount,
+    countedNoteCount: snapshot.totals.noteCount,
+    realTagCount: snapshot.tags.size,
+    unreliablePaths: [],
+    scopeUnknownPaths: scope?.unknownPaths ?? [],
+    nodes: new Map(),
+    rootIds: [],
+  });
+
+  const openExactEditor = (from: string, targetPrefill?: string) => {
+    if (!canPreview) return;
+    const normalized = tagWithHash(from);
+    const id = tagIdentity(normalized);
+    const existing = tree?.nodes.get(id);
+    const node: TagTreeNode = existing && !existing.virtual
+      ? existing
+      : {
+        id,
+        displayTag: normalized,
+        rawVariants: [normalized],
+        children: [],
+        virtual: false,
+        directPaths: snapshot.tags.get(normalized)?.samplePaths ?? [],
+        branchPaths: snapshot.tags.get(normalized)?.samplePaths ?? [],
+      };
+    setBranchEditor({
+      node,
+      includeDescendants: false,
+      targetPrefill: targetPrefill === undefined ? normalized : targetPrefill ? tagWithHash(targetPrefill) : '',
+    });
   };
 
-  const promptRename = async (from: string) => {
-    const target = await plugin.prompt(t('common.rename'), from);
-    if (target && target !== from) merge(from, target, 'renameTag');
+  const toggleSelect = (id: TagId) => {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
-  const promptMerge = async (from: string) => {
-    const target = await plugin.prompt(t('tags.mergeTo'), '');
-    if (target && target !== from) merge(from, target);
-  };
+  const selectedNodes = tree
+    ? [...selectedIds].map(id => tree.nodes.get(id)).filter((node): node is TagTreeNode => Boolean(node && !node.virtual))
+    : [];
 
   const tagGroups = snapshot.duplicateGroups.filter(group => group.kind === 'tag' && !group.ignored);
   const tags = [...snapshot.tags.values()]
@@ -61,7 +129,7 @@ export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: Pag
       onDragOver={event => event.preventDefault()}
       onDrop={event => {
         event.preventDefault();
-        if (dragFrom) merge(dragFrom, stat.tag);
+        if (dragFrom && dragFrom !== stat.tag) openExactEditor(dragFrom, stat.tag);
         setDragFrom(null);
       }}
       title={t('tags.mergeHint')}
@@ -89,19 +157,86 @@ export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: Pag
   return (
     <div class="propcraft-page">
       <h2 class="propcraft-page-title">{t('tags.title')}</h2>
-      <div class="propcraft-muted">{t('scope.current')} {t('preview.exactTag')}</div>
+      <div class="propcraft-muted">{t('scope.current')}</div>
+
       <div class="propcraft-toolbar">
-        <input class="propcraft-input" placeholder={t('tags.search')} value={search} onInput={event => setSearch((event.target as HTMLInputElement).value)} />
-        <label class="propcraft-check">
-          <input type="checkbox" checked={duplicatesOnly} onChange={event => setDuplicatesOnly((event.target as HTMLInputElement).checked)} />
-          {t('tags.duplicatesOnly')}
-        </label>
-        <span class="propcraft-muted">{t('tags.mergeHint')}</span>
+        <div class="propcraft-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'tree'}
+            class={`propcraft-tab ${viewMode === 'tree' ? 'is-active' : ''}`}
+            onClick={() => setViewMode('tree')}
+          >
+            {t('tags.view.tree')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'list'}
+            class={`propcraft-tab ${viewMode === 'list' ? 'is-active' : ''}`}
+            onClick={() => setViewMode('list')}
+          >
+            {t('tags.view.list')}
+          </button>
+        </div>
+
+        <input
+          class="propcraft-input"
+          placeholder={t('tags.search')}
+          value={search}
+          onInput={event => setSearch(event.currentTarget.value)}
+        />
+
+        {viewMode === 'list' ? (
+          <label class="propcraft-check">
+            <input type="checkbox" checked={duplicatesOnly} onChange={event => setDuplicatesOnly(event.currentTarget.checked)} />
+            {t('tags.duplicatesOnly')}
+          </label>
+        ) : null}
+
+        {viewMode === 'tree' && selectedNodes.length > 0 ? (
+          <>
+            <span class="propcraft-muted">{t('tags.tree.selectedCount', { count: selectedNodes.length })}</span>
+            <button
+              type="button"
+              class="propcraft-btn mod-cta"
+              disabled={!canPreview}
+              onClick={() => setPropertyEditor({ nodes: selectedNodes })}
+            >
+              {t('tags.tree.convertSelected')}
+            </button>
+            <button type="button" class="propcraft-btn" onClick={() => setSelectedIds(new Set())}>
+              {t('tags.tree.clearSelection')}
+            </button>
+          </>
+        ) : null}
       </div>
 
       {!duplicatesOnly && tagGroups.length > 0 ? <div class="propcraft-groups">{tagGroups.map(renderGroup)}</div> : null}
 
-      {tags.length === 0 ? <div class="propcraft-empty">{t('tags.none')}</div> : (
+      {viewMode === 'tree' ? (
+        treeBusy || !tree ? (
+          <div class="propcraft-empty" role="status">{t('tags.tree.loading')}</div>
+        ) : (
+          <TagTree
+            tree={tree}
+            search={search}
+            selectedIds={selectedIds}
+            canPreview={canPreview}
+            t={t}
+            plugin={plugin}
+            onClearSearch={() => setSearch('')}
+            onToggleSelect={toggleSelect}
+            onDrillDown={(node, mode) => setDrillDown({
+              title: t(mode === 'direct' ? 'tags.noteList.directTitle' : 'tags.noteList.branchTitle', { tag: node.displayTag }),
+              paths: mode === 'direct' ? node.directPaths : node.branchPaths,
+            })}
+            onOpenBranchEditor={(node, includeDescendants, targetPrefill) => setBranchEditor({ node, includeDescendants, targetPrefill })}
+            onOpenPropertyEditor={(nodes, branchLabel) => setPropertyEditor({ nodes, branchLabel })}
+          />
+        )
+      ) : tags.length === 0 ? <div class="propcraft-empty">{t('tags.none')}</div> : (
         <div class="propcraft-table-wrap">
           <table class="propcraft-table">
             <thead>
@@ -120,14 +255,14 @@ export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: Pag
                   onDragStart={() => setDragFrom(stat.tag)}
                   onDragEnd={() => setDragFrom(null)}
                   onDragOver={event => event.preventDefault()}
-                  onDrop={event => { event.preventDefault(); if (dragFrom) merge(dragFrom, stat.tag); setDragFrom(null); }}
+                  onDrop={event => { event.preventDefault(); if (dragFrom && dragFrom !== stat.tag) openExactEditor(dragFrom, stat.tag); setDragFrom(null); }}
                 >
                   <td>{stat.tag}</td>
                   <td class="num">{stat.fileCount}</td>
                   <td>{originLabel(t, stat.origin)}</td>
                   <td class="propcraft-actions">
-                    <button class="propcraft-link" disabled={!canPreview} onClick={() => void promptRename(stat.tag)}>{t('common.rename')}</button>
-                    <button class="propcraft-link" disabled={!canPreview} onClick={() => void promptMerge(stat.tag)}>{t('tags.mergeTo')}</button>
+                    <button class="propcraft-link" disabled={!canPreview} onClick={() => openExactEditor(stat.tag, stat.tag)}>{t('common.rename')}</button>
+                    <button class="propcraft-link" disabled={!canPreview} onClick={() => openExactEditor(stat.tag, '')}>{t('tags.mergeTo')}</button>
                   </td>
                 </tr>
               ))}
@@ -135,6 +270,34 @@ export function TagGrid({ snapshot, t, plugin, requestPreview, canPreview }: Pag
           </table>
         </div>
       )}
+
+      {drillDown ? (
+        <TagNoteList title={drillDown.title} paths={drillDown.paths} t={t} plugin={plugin} onClose={() => setDrillDown(null)} />
+      ) : null}
+
+      {branchEditor ? (
+        <TagBranchEditor
+          tree={tree ?? fallbackTree()}
+          sourceNode={branchEditor.node}
+          initialIncludeDescendants={branchEditor.includeDescendants}
+          initialTarget={branchEditor.targetPrefill}
+          t={t}
+          onCancel={() => setBranchEditor(null)}
+          onGenerate={operation => { setBranchEditor(null); void requestPreview(operation); }}
+        />
+      ) : null}
+
+      {propertyEditor && tree ? (
+        <TagPropertyEditor
+          tree={tree}
+          initialNodes={propertyEditor.nodes}
+          branchLabel={propertyEditor.branchLabel}
+          t={t}
+          plugin={plugin}
+          onCancel={() => setPropertyEditor(null)}
+          onGenerate={operation => { setPropertyEditor(null); void requestPreview(operation); }}
+        />
+      ) : null}
     </div>
   );
 }

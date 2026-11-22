@@ -100,13 +100,13 @@ export function ValueMappingEditor({ keyName, mode, scopeLabel, selected, distri
         <th scope="col">{t('mapping.source')}</th><th scope="col">{t('mapping.targetType')}</th><th scope="col">{t('mapping.targetValue')}</th>
       </tr></thead><tbody>{rows.map(row => <tr key={row.id}>
         <td>{displayScalar(row.source)}</td>
-        <td><select class="propcraft-input" aria-label={t('mapping.targetType')} value={row.targetType} onChange={event => {
+        <td><select class="propcraft-input" value={row.targetType} onChange={event => {
           const targetType = event.currentTarget.value as TargetType;
           updateRow(row.id, { targetType, targetText: '', set: false, manual: true });
         }}><option value="text">text</option><option value="number">number</option><option value="boolean">boolean</option></select></td>
         <td>{row.targetType === 'boolean'
-          ? <select class="propcraft-input" aria-label={t('mapping.targetValue')} value={row.set ? row.targetText : ''} onChange={event => { const targetText = event.currentTarget.value; updateRow(row.id, { targetText, set: targetText !== '', manual: true }); }}><option value="">—</option><option value="true">true</option><option value="false">false</option></select>
-          : <input class="propcraft-input" aria-label={t('mapping.targetValue')} placeholder={t('mapping.literalValue')} value={row.targetText} onInput={event => updateRow(row.id, { targetText: event.currentTarget.value, set: true, manual: true })} />}</td>
+          ? <select class="propcraft-input" value={row.set ? row.targetText : ''} onChange={event => { const targetText = event.currentTarget.value; updateRow(row.id, { targetText, set: targetText !== '', manual: true }); }}><option value="">—</option><option value="true">true</option><option value="false">false</option></select>
+          : <input class="propcraft-input" placeholder={t('mapping.literalValue')} value={row.targetText} onInput={event => updateRow(row.id, { targetText: event.currentTarget.value, set: true, manual: true })} />}</td>
       </tr>)}</tbody></table></div> : null}
 
       {rows.some(row => row.source.type === 'text') ? <div class="propcraft-group">
@@ -124,10 +124,10 @@ export function ValueMappingEditor({ keyName, mode, scopeLabel, selected, distri
         }} />{t(`mapping.fill.${state}`)}</label>)}
         <div class="propcraft-field"><label>{t('mapping.fill.targetType')} <select class="propcraft-input" value={fillType} onChange={event => { setFillType(event.currentTarget.value as typeof fillType); setFillText(''); }}><option value="text">text</option><option value="number">number</option><option value="boolean">boolean</option><option value="list">list</option></select></label></div>
         {fillType === 'list'
-          ? <textarea class="propcraft-input" aria-label={t('mapping.fill.targetValue')} placeholder={t('mapping.listTarget')} value={fillText} onInput={event => setFillText(event.currentTarget.value)} />
+          ? <textarea class="propcraft-input" placeholder={t('mapping.listTarget')} value={fillText} onInput={event => setFillText(event.currentTarget.value)} />
           : fillType === 'boolean'
             ? <select class="propcraft-input" value={fillText} onChange={event => setFillText(event.currentTarget.value)}><option value="">—</option><option value="true">true</option><option value="false">false</option></select>
-            : <input class="propcraft-input" aria-label={t('mapping.fill.targetValue')} placeholder={t('mapping.literalValue')} value={fillText} onInput={event => setFillText(event.currentTarget.value)} />}
+            : <input class="propcraft-input" placeholder={t('mapping.literalValue')} value={fillText} onInput={event => setFillText(event.currentTarget.value)} />}
       </div> : <div class="propcraft-muted">{t('mapping.fill.memberHidden')}</div>}
 
       <div class="propcraft-muted">{t('mapping.predict', { sources: sourceIdentities.size, targets: targetKeys.size, notes: affected.size })}</div>

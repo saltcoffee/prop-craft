@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { parse } from 'yaml';
+import { parse, stringify } from 'yaml';
 import * as obsidian from 'obsidian';
 import { describe, expect, it, vi } from 'vitest';
 import { ObsidianNoteCodec } from '../src/infrastructure/ObsidianNoteCodec';
@@ -29,6 +29,26 @@ describe('0.1.2 note and tag codecs', () => {
     const host = vi.spyOn(obsidian, 'parseYaml').mockImplementation(source => parse(source, { uniqueKeys: false }));
     expect(codec.decode('---\na: 1\na: 2\n---\nBody')).toEqual({ ok: false, code: 'frontmatter-invalid' });
     host.mockRestore();
+  });
+  it('preserves signed zero in nested frontmatter when Obsidian serializes it as zero', () => {
+    const host = vi.spyOn(obsidian, 'stringifyYaml').mockImplementation(value =>
+      stringify(value, (_key, entry: unknown) => Object.is(entry, -0) ? 0 : entry),
+    );
+    try {
+      const source = '\ufeff---\r\nscores: [0]\r\nmetadata: { zero: -0, date: "2026-11-22", literal: "-0" }\r\n---\r\nBody\r\n';
+      const decoded = codec.decode(source);
+      if (!decoded.ok) throw Error('decode');
+      const before = decoded.note.frontmatter;
+      const after = { ...before, scores: [0, -0] };
+      const encoded = codec.compose(source, decoded.note, { path: 'a.md', beforeFrontmatter: before, afterFrontmatter: after, textOps: [] });
+      expect(encoded.ok).toBe(true);
+      if (!encoded.ok) return;
+      expect(encoded.content.startsWith('\ufeff---\r\n')).toBe(true);
+      expect(encoded.content.endsWith('---\r\nBody\r\n')).toBe(true);
+      expect(codec.decode(encoded.content)).toMatchObject({ ok: true, note: { frontmatter: after } });
+    } finally {
+      host.mockRestore();
+    }
   });
   it('TC-X03: matches captured Obsidian 1.15.0 body tag offsets, including Unicode and syntax exclusions', () => {
     const fixture = JSON.parse(readFileSync(new URL('./fixtures/0.1.2/host-1.15.0-syntax.json', import.meta.url), 'utf8')) as { source: string; tags: { tag: string; position: { start: { offset: number }; end: { offset: number } } }[] };

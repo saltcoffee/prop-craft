@@ -18,10 +18,10 @@ export class VaultIndexer {
   private readonly dirty = new Set<string>();
   private readonly versions = new Map<string, number>();
   private files = new Map<string, FileMeta>();
-  private timer: ReturnType<typeof setTimeout> | undefined;
+  private timer: number | undefined;
   constructor(private readonly vault: VaultPort, private readonly store: SnapshotStore, private readonly options: IndexerOptions, private readonly codec: NoteCodecPort) {}
   start(): void { this.stopped = false; void this.rebuild(); }
-  stop(): void { this.stopped = true; clearTimeout(this.timer); }
+  stop(): void { this.stopped = true; window.clearTimeout(this.timer); this.timer = undefined; }
   async rebuild(): Promise<void> {
     if (this.stopped) return;
     if (this.running) { this.pending = true; return; }
@@ -32,7 +32,7 @@ export class VaultIndexer {
       for (let i = 0; i < paths.length && !this.stopped; i += 32) {
         const metas = await Promise.all(paths.slice(i, i + 32).map(path => this.read(path)));
         for (const meta of metas) next.set(meta.path, meta);
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise<void>(resolve => { window.setTimeout(resolve, 0); });
       }
       // Replay changes received during scanning before publishing the new snapshot.
       while (this.dirty.size && !this.stopped) {
@@ -78,7 +78,7 @@ export class VaultIndexer {
     if (this.running) { this.dirty.add(path); return; }
     this.files = new Map(this.files).set(path, meta); this.schedule();
   }
-  private schedule(): void { clearTimeout(this.timer); this.timer = setTimeout(() => this.publish(), 200); }
+  private schedule(): void { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => this.publish(), 200); }
   private publish(): void {
     if (this.stopped) return;
     const settings = this.options.getSettings();

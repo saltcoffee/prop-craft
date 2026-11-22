@@ -30,7 +30,7 @@ export class ScopeService {
           result.reasons[path] = file.frontmatterParseError ? 'frontmatter-invalid' : 'metadata-stale';
         }
       }
-      if (i > 0 && i % 1000 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      if (i > 0 && i % 1000 === 0) await new Promise<void>(resolve => { window.setTimeout(resolve, 0); });
     }
     result.summary = { ...result.summary, matched: result.matchedPaths.length, manual: result.manuallyExcludedPaths.length, effective: result.effectivePaths.length, unknown: result.unknownPaths.length };
     return result;

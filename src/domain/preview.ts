@@ -3,6 +3,47 @@ import type { ActualValueType } from './property-value';
 import type { IssueCode } from './errors';
 import type { ScopeQuery, ScopeSummary } from './scope';
 import type { TypePatch } from './type-config';
+import type { TagBranchMapping, TagCollisionReport } from './tag-migration';
+import type { MatchedTagSource, TagPropertyResolution, TagSourceDisposition } from './tag-property';
+
+export type { TagPropertyResolution } from './tag-property';
+
+export interface TagMigrationCandidateView {
+  id: string;
+  resolution: TagPropertyResolution;
+  ruleIds: readonly string[];
+  value: unknown;
+  afterType: ActualValueType;
+  propertyChanged: boolean;
+  representedRuleIds: readonly string[];
+  removableRuleIds: readonly string[];
+  retainedRuleIds: readonly string[];
+  dispositions: readonly TagSourceDisposition[];
+  requiredConfirmations: readonly ValueConfirmation[];
+  diffs: readonly DiffHunk[];
+  selectable: boolean;
+  blockedReason?: IssueCode;
+  blockedDetail?: string;
+}
+
+export interface TagMigrationAnalysis {
+  matchedRuleIds: readonly string[];
+  matchedSources: readonly MatchedTagSource[];
+  hasExisting: boolean;
+  existingValue?: unknown;
+  existingType?: ActualValueType;
+  requiresResolution: boolean;
+  allowedResolutions: readonly TagPropertyResolution[];
+  candidates: readonly TagMigrationCandidateView[];
+  selectedCandidateId?: string;
+  issues: readonly { code: IssueCode; ruleIds?: readonly string[]; detail?: string }[];
+}
+
+export interface TagBranchSummary {
+  mappings: readonly TagBranchMapping[];
+  collisions: TagCollisionReport;
+  overlap: boolean;
+}
 
 export type ValueConfirmation = 'value-loss' | 'declared-type-mismatch' | 'date-interpretation';
 export interface ValueIssue { code: IssueCode; detail?: string }
@@ -31,6 +72,7 @@ export interface PreviewDecision {
   dateInterpretationConfirmed?: boolean;
   valueLossConfirmed?: boolean;
   declaredTypeMismatchConfirmed?: boolean;
+  tagPropertyResolution?: TagPropertyResolution;
   individual?: boolean;
 }
 export interface PreviewDecisionPatch {
@@ -41,6 +83,7 @@ export interface PreviewDecisionPatch {
   dateInterpretationConfirmed?: boolean;
   valueLossConfirmed?: boolean;
   declaredTypeMismatchConfirmed?: boolean;
+  tagPropertyResolution?: TagPropertyResolution | null;
   individual?: boolean;
 }
 export interface PreviewItem {
@@ -56,6 +99,7 @@ export interface PreviewItem {
   conflictValues?: { source: string; target: string };
   stale?: boolean;
   valueAnalysis?: ValueAnalysis;
+  tagAnalysis?: TagMigrationAnalysis;
 }
 export interface PreviewSummary {
   total: number;
@@ -76,6 +120,7 @@ export interface PreviewView {
   summary: PreviewSummary;
   typeSummary: TypeSummary;
   valueSummary?: ValueSummary;
+  tagBranchSummary?: TagBranchSummary;
   invalid?: IssueCode;
   retryOf?: string;
 }
@@ -129,11 +174,21 @@ export interface ExecutionResult {
   typeStatus: string;
   requiresReconciliation: boolean;
 }
+const UNRESOLVED_CONFLICT_REASONS: ReadonlySet<IssueCode> = new Set([
+  'conflict-unresolved',
+  'date-ambiguous',
+  'date-value-loss',
+  'number-representation',
+  'declared-type-mismatch',
+  'tag-scalar-conflict',
+  'tag-target-conflict',
+]);
+
 export function summarizePreview(items: readonly PreviewItem[]): PreviewSummary {
   return items.reduce((total, item) => {
     total.total++;
     total[item.disposition]++;
-    if (item.conflict && item.reason === 'conflict-unresolved') total.conflicts++;
+    if (item.conflict && item.reason && UNRESOLVED_CONFLICT_REASONS.has(item.reason)) total.conflicts++;
     return total;
   }, { total: 0, execute: 0, skip: 0, noop: 0, blocked: 0, conflicts: 0 });
 }

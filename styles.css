@@ -22,32 +22,32 @@
 
 .propcraft-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 
-.propcraft-tab {
+.propcraft .propcraft-tab {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-s);
   cursor: pointer;
   font-size: var(--font-ui-small);
 }
-.propcraft-tab:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
-.propcraft-tab.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+.propcraft .propcraft-tab:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.propcraft .propcraft-tab.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
 
 .propcraft-topbar-actions { display: flex; align-items: center; gap: 8px; }
 .propcraft-status { color: var(--text-muted); font-size: var(--font-ui-smaller); }
 
-.propcraft-btn {
+.propcraft .propcraft-btn {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-s);
   cursor: pointer;
 }
-.propcraft-btn:hover { background: var(--background-modifier-hover); }
-.propcraft-btn.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); border-color: transparent; }
-.propcraft-btn:disabled { opacity: 0.5; cursor: default; }
+.propcraft .propcraft-btn:hover { background: var(--background-modifier-hover); }
+.propcraft .propcraft-btn.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); border-color: transparent; }
+.propcraft .propcraft-btn:disabled { opacity: 0.5; cursor: default; }
 
 .propcraft-main { flex: 1; overflow: auto; padding: 16px; }
 .propcraft-page { max-width: 1100px; margin: 0 auto; }
@@ -80,7 +80,7 @@
 .propcraft-table tr.is-orphan td { background: var(--background-modifier-error-hover); }
 
 .propcraft-table td.propcraft-actions { width: 1%; white-space: nowrap; vertical-align: middle; }
-.propcraft-actions > .propcraft-link {
+.propcraft .propcraft-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -88,13 +88,17 @@
   height: auto;
   min-height: 28px;
   margin: 0;
-  padding: 4px 8px;
+  padding: 4px 10px;
   line-height: 1.4;
+  background: none;
+  border: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  font-size: inherit;
 }
 .propcraft-actions > .propcraft-link + .propcraft-link { margin-inline-start: 6px; }
-.propcraft-link { background: none; border: none; color: var(--text-accent); cursor: pointer; padding: 0; font-size: inherit; }
-.propcraft-link:hover { text-decoration: underline; }
-.propcraft-link.mod-danger { color: var(--text-error); }
+.propcraft .propcraft-link:hover { text-decoration: underline; }
+.propcraft .propcraft-link.mod-danger { color: var(--text-error); }
 
 .propcraft-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--background-modifier-border); color: var(--text-muted); font-size: var(--font-ui-smaller); }
 .propcraft-badge.mod-warn { background: var(--color-orange); color: #000; }
@@ -127,7 +131,8 @@
 .propcraft-drawer-summary { color: var(--text-muted); }
 .propcraft-drawer-body { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .propcraft-drawer-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.propcraft-diff { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); }
+.propcraft-diff { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.propcraft-diff > .propcraft-link { align-self: flex-start; }
 .propcraft-diff-path { padding: 6px 8px; background: var(--background-secondary); font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
 .propcraft-diff-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 8px; font-family: var(--font-monospace); font-size: var(--font-ui-smaller); }
 .propcraft-diff-row.is-del { background: var(--background-modifier-error-hover); }
@@ -155,10 +160,53 @@
 .propcraft-original { max-height: 50vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .propcraft button:focus-visible, .propcraft input:focus-visible, .propcraft select:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .propcraft button:disabled { opacity: .5; cursor: default; }
+
+/* 0.1.4 tag tree & migration workbench. */
+.propcraft-tag-tree-wrap { display: flex; flex-direction: column; gap: 10px; }
+.propcraft-tag-tree { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); overflow: hidden; }
+.propcraft-tree-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.propcraft-tree-row:last-child { border-bottom: none; }
+.propcraft-tree-row:hover { background: var(--background-modifier-hover); }
+.propcraft-tree-row:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.propcraft-tree-row.is-virtual { background: var(--background-secondary); }
+.propcraft-tree-row.is-dragging { opacity: 0.5; }
+.propcraft-tree-main { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; flex: 1 1 220px; }
+.propcraft .propcraft-tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.propcraft-tree-spacer { display: inline-block; width: 20px; }
+.propcraft-tree-name { font-weight: 500; }
+.propcraft-tree-variants { font-size: var(--font-ui-smaller); }
+.propcraft-tree-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.propcraft-tagprop-rule { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.propcraft-tagprop-rule .propcraft-input { min-width: 110px; flex: 1 1 120px; }
+.propcraft-tag-detail { padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; font-size: var(--font-ui-smaller); }
+.propcraft-tag-decision { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 8px 6px; }
+.propcraft-branch-summary { max-height: 28vh; overflow: auto; }
+
 @media (max-width: 600px) {
   .propcraft-drawer { width: 100%; max-width: 100%; }
   .propcraft-topbar { flex-wrap: wrap; }
   .propcraft-tabs { flex-wrap: wrap; }
   .propcraft-condition { align-items: stretch; }
   .propcraft-diff-row { flex-wrap: wrap; }
+  .propcraft-tree-row { flex-direction: column; align-items: flex-start; }
+  .propcraft-tagprop-rule { flex-direction: column; align-items: stretch; }
 }

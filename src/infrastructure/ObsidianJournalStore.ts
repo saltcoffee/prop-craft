@@ -1,4 +1,4 @@
-import { decodeJournal, decodeState, utf8Bytes, validJournalId, type JournalStateV2, type JournalTransactionV2, type LoadedJournal } from '../domain/journal';
+import { decodeJournal, decodeState, serializeJournalJson, utf8Bytes, validJournalId, type JournalStateV2, type JournalTransactionV2, type LoadedJournal } from '../domain/journal';
 import { isVaultPath } from '../domain/scope';
 import { OperationError } from '../domain/errors';
 import type { JournalStore, StoredJournal } from '../ports/JournalStore';
@@ -17,7 +17,7 @@ export class ObsidianJournalStore implements JournalStore {
   async prepare(transaction: JournalTransactionV2, state: JournalStateV2): Promise<void> {
     const id = transaction.transactionId;
     if (await this.vault.readConfigFile(this.path(id, 'transaction')) !== null || await this.vault.readConfigFile(this.path(id)) !== null) throw new OperationError('journal-invalid');
-    await this.vault.writeConfigFile(this.path(id, 'transaction'), JSON.stringify(transaction));
+    await this.vault.writeConfigFile(this.path(id, 'transaction'), serializeJournalJson(transaction));
     await this.vault.writeConfigFile(this.path(id, 'state'), JSON.stringify(state));
   }
   async checkpoint(id: string, expectedRevision: number, next: JournalStateV2): Promise<void> {

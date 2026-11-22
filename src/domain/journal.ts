@@ -85,6 +85,25 @@ export interface JournalListItem {
 }
 export function validJournalId(id: string): boolean { return /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(id); }
 export const utf8Bytes = (value: string): number => new TextEncoder().encode(value).byteLength;
+
+/**
+ * Standard JSON serializer that preserves `-0` as `-0` instead of coercing it to `0`,
+ * ensuring numeric mapping targets round-trip faithfully through V2 journals on retry.
+ */
+export function serializeJournalJson(value: unknown): string {
+  if (typeof value === 'number') return Object.is(value, -0) ? '-0' : JSON.stringify(value);
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    const items: readonly unknown[] = value;
+    return `[${items.map(item => (item === undefined || typeof item === 'function' || typeof item === 'symbol' ? 'null' : serializeJournalJson(item))).join(',')}]`;
+  }
+  const parts: string[] = [];
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (entry === undefined || typeof entry === 'function' || typeof entry === 'symbol') continue;
+    parts.push(`${JSON.stringify(key)}:${serializeJournalJson(entry)}`);
+  }
+  return `{${parts.join(',')}}`;
+}
 export const isHash = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const finiteTime = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
@@ -114,8 +133,8 @@ export async function decodeJournal(raw: string | null, stateRaw: string | null,
     if (!object(value)) return invalid();
     if (value.schemaVersion !== undefined && value.schemaVersion !== 2) return { kind: 'unsupported', transactionId: id, issue: 'journal-unsupported' };
     // A future/unknown operation kind is unsupported (read-only), never a corrupted known record.
-    if (object(value.operation) && typeof (value.operation as Record<string, unknown>).kind === 'string'
-      && !KNOWN_OPERATION_KINDS.has((value.operation as Record<string, unknown>).kind as string)) {
+    if (object(value.operation) && typeof value.operation.kind === 'string'
+      && !KNOWN_OPERATION_KINDS.has(value.operation.kind)) {
       return { kind: 'unsupported', transactionId: id, issue: 'journal-unsupported' };
     }
     if (value.transactionId !== id || !finiteTime(value.createdAt) || !isChangeOperation(value.operation)
