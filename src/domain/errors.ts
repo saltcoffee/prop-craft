@@ -12,7 +12,12 @@ export type IssueCode =
   | 'mapping-source-conflict' | 'mapping-non-idempotent' | 'value-source-unselected'
   | 'value-empty-source' | 'value-unsupported' | 'number-format' | 'number-representation'
   | 'number-precision' | 'split-link' | 'split-delimiter-missing' | 'date-value-loss'
-  | 'date-invalid-time' | 'date-unsupported' | 'declared-type-mismatch';
+  | 'date-invalid-time' | 'date-unsupported' | 'declared-type-mismatch'
+  // 0.1.4 tag migration codes.
+  | 'tag-path-invalid' | 'tag-semantics-changed' | 'tag-descendant-target'
+  | 'tag-container-unsupported' | 'tag-rule-duplicate' | 'tag-scalar-conflict'
+  | 'tag-target-conflict' | 'tag-target-unsupported' | 'tag-source-unrepresented'
+  | 'tag-source-retained';
 
 export class OperationError extends Error {
   constructor(readonly code: IssueCode, readonly path?: string) {

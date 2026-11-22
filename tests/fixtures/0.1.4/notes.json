@@ -1,0 +1,86 @@
+{
+  "branch": [
+    {
+      "path": "Cases/Branch/B01.md",
+      "content": "---\ntags:\n  - a/b\n  - a/b/c\n---\n#A/B #a/bc\n"
+    },
+    {
+      "path": "Cases/Branch/B02.md",
+      "content": "---\ntags:\n  - a/b/c\n---\n#a/b/c #a/b/c\n"
+    },
+    {
+      "path": "Cases/Branch/B03.md",
+      "content": "#a/b/d #x/c\n"
+    },
+    {
+      "path": "Cases/Branch/B04.md",
+      "content": "---\ntags:\n  - x\n  - a/b\n  - x\n  - other\n  - other\n---\n#x #a/b\n"
+    },
+    {
+      "path": "Cases/Branch/B05.md",
+      "content": "#virtual/leaf #a/bc\n"
+    },
+    {
+      "path": "Cases/Branch/B06.md",
+      "content": "`#a/b`\n```md\n#a/b\n```\nhttps://example.com/#a/b\n[[Note#a/b]]\n普通文本 a/b\n"
+    },
+    {
+      "path": "Cases/Branch/B07.md",
+      "content": "---\ntags: [\n---\n#a/b\n"
+    },
+    {
+      "path": "Cases/Branch/B08.md",
+      "content": "---\ntags: \"a/b, keep\"\ntag:\n  - a/b/c\n---\n#a/b/c #x/c\n"
+    }
+  ],
+  "convert": [
+    {
+      "path": "Cases/Convert/T01.md",
+      "content": "---\ntags:\n  - 状态/已读\n---\n#状态/已读\n"
+    },
+    {
+      "path": "Cases/Convert/T02.md",
+      "content": "---\ntags:\n  - 状态/在读\nstatus: unread\n---\n"
+    },
+    {
+      "path": "Cases/Convert/T03.md",
+      "content": "---\ntags:\n  - 状态/已读\n  - 状态/在读\n---\n#状态/已读 #状态/在读\n"
+    },
+    {
+      "path": "Cases/Convert/T04.md",
+      "content": "---\ntags:\n  - 状态/已读\nstatus: done\n---\n#状态/已读 #other\n"
+    },
+    {
+      "path": "Cases/Convert/T05.md",
+      "content": "---\nstatus: false\n---\n#状态/已读\n"
+    },
+    {
+      "path": "Cases/Convert/T06.md",
+      "content": "---\ntags:\n  - 学科/历史\n  - 学科/文学\nsubjects:\n  - science\n---\n#学科/历史\n"
+    },
+    {
+      "path": "Cases/Convert/T07.md",
+      "content": "---\ntags:\n  - 学科/历史\n  - 学科/文学\nsubjects:\n  - history\n  - history\n  - science\n---\n"
+    },
+    {
+      "path": "Cases/Convert/T08.md",
+      "content": "---\ntags:\n  - 学科/历史\nsubjects: science\n---\n"
+    },
+    {
+      "path": "Cases/Convert/T09.md",
+      "content": "---\ntags:\n  - 状态/完成\n  - 状态/已读\n---\n#状态/完成\n"
+    },
+    {
+      "path": "Cases/Convert/T10.md",
+      "content": "---\ntags:\n  - 状态/已读/精读\n---\n#状态/已读/精读\n"
+    },
+    {
+      "path": "Cases/Convert/T11.md",
+      "content": "---\ntags: \"状态/已读, keep\"\ntag:\n  - 状态/已读\nstatus: null\n---\n#状态/已读\n"
+    },
+    {
+      "path": "Cases/Convert/T12.md",
+      "content": "#状态/已读\n"
+    }
+  ]
+}

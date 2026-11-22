@@ -25,7 +25,7 @@ export function RecoveryDrawer({ preview, t, plugin, onRecover, onClose, onReche
       <div>{t('execute.type', { status: preview.type.targetKey ? `${preview.type.targetKey}: ${preview.type.value}` : t('state.none') })} · {preview.type.reason ? issueText(t, preview.type.reason) : preview.type.kind === 'restore' ? t('history.undo') : preview.type.kind === 'original' ? t('issue.already-original') : t('state.none')}</div>
       <div class="propcraft-muted">{t('history.recovery.dependency')}</div>
     </div>
-    <input class="propcraft-input" aria-label={t('preview.filter')} placeholder={t('preview.filter')} value={filter} onInput={event => { setFilter(event.currentTarget.value); setLimit(100); }} />
+    <input class="propcraft-input" placeholder={t('preview.filter')} value={filter} onInput={event => { setFilter(event.currentTarget.value); setLimit(100); }} />
     <div class="propcraft-drawer-body">{rows.slice(0, limit).map(item => <div class="propcraft-diff" key={item.path}>
       <div class="propcraft-path">{item.path}</div><div class={item.kind === 'blocked' ? 'propcraft-warn' : 'propcraft-muted'}>{issueText(t, item.reason)}</div>
       <button class="propcraft-link" onClick={() => void plugin.openNote(item.path)}>{t('scope.open')}</button>{' '}

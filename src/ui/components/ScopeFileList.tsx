@@ -16,9 +16,9 @@ export function ScopeFileList({ query, result, snapshot, onChange, onClose, plug
     ...result.globallyExcludedPaths.map(path => ({ path, group: 'global' as const })),
   ].filter(row => row.path.toLowerCase().includes(search.toLowerCase())).sort((a, b) => a.path.localeCompare(b.path));
   return <Dialog drawer title={t('scope.files')} closeLabel={t('common.close')} onClose={onClose}>
-    <input class="propcraft-input" aria-label={t('preview.filter')} placeholder={t('preview.filter')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(100); }} />
+    <input class="propcraft-input" placeholder={t('preview.filter')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(100); }} />
     <div class="propcraft-drawer-body">{rows.slice(0, limit).map(row => <div class="propcraft-diff" key={row.path}>
-      <label class="propcraft-check"><input type="checkbox" aria-label={`${t('scope.manual')}: ${row.path}`} checked={row.group === 'match' && !manual.has(row.path)} disabled={row.group !== 'match'} onChange={event => {
+      <label class="propcraft-check"><input type="checkbox" checked={row.group === 'match' && !manual.has(row.path)} disabled={row.group !== 'match'} onChange={event => {
         const paths = new Set(query.manuallyExcludedPaths);
         if (event.currentTarget.checked) paths.delete(row.path); else paths.add(row.path);
         onChange({ ...query, manuallyExcludedPaths: [...paths] });

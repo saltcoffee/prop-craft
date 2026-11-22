@@ -58,7 +58,7 @@ export function ValueConversionEditor({ keyName, mode, distribution, selected, t
         </select></label></div>
         {kind === 'split-list' ? <div class="propcraft-group">
           <div class="propcraft-field"><label>{t('conversion.delimiter')} <select class="propcraft-input" value={delimiterKind} onChange={event => setDelimiterKind(event.currentTarget.value as 'literal' | 'newline')}><option value="literal">{t('conversion.delimiter.literal')}</option><option value="newline">{t('conversion.delimiter.newline')}</option></select></label></div>
-          {delimiterKind === 'literal' ? <input class="propcraft-input" aria-label={t('conversion.delimiterValue')} placeholder={t('conversion.delimiterValue')} value={delimiterText} onInput={event => setDelimiterText(event.currentTarget.value)} /> : null}
+          {delimiterKind === 'literal' ? <input class="propcraft-input" placeholder={t('conversion.delimiterValue')} value={delimiterText} onInput={event => setDelimiterText(event.currentTarget.value)} /> : null}
           <label class="propcraft-check"><input type="checkbox" checked={trimItems} onChange={event => setTrimItems(event.currentTarget.checked)} />{t('conversion.trimItems')}</label>
           <label class="propcraft-check"><input type="checkbox" checked={dropEmptyItems} onChange={event => setDropEmptyItems(event.currentTarget.checked)} />{t('conversion.dropEmptyItems')}</label>
         </div> : null}

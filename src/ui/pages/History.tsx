@@ -14,6 +14,17 @@ function describe(operation: ChangeOperation, t: PageProps['t']): string {
     case 'normalizeDate': return `${t('properties.normalizeDates')}: ${operation.key}`;
     case 'mapPropertyValues': return t('history.op.mapPropertyValues', { key: operation.key });
     case 'convertPropertyType': return t('history.op.convertPropertyType', { key: operation.key });
+    case 'migrateTagBranch': return t('history.op.migrateTagBranch', {
+      from: operation.from,
+      to: operation.to,
+      mode: t(operation.includeDescendants ? 'history.op.mode.descendants' : 'history.op.mode.exact'),
+    });
+    case 'convertTagsToProperty': return t('history.op.convertTagsToProperty', {
+      count: operation.rules.length,
+      key: operation.key,
+      mode: t(operation.mode === 'list' ? 'history.op.mode.list' : 'history.op.mode.scalar'),
+      sources: t(operation.removeSourceTags ? 'history.op.sources.remove' : 'history.op.sources.keep'),
+    });
   }
 }
 export function History({ plugin, t }: PageProps) {

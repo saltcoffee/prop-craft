@@ -16,7 +16,7 @@ export function ValueNoteList({ title, paths, plugin, t, onClose }: {
   }, [paths, search]);
   return <Dialog drawer title={title} closeLabel={t('common.close')} onClose={onClose}>
     <div class="propcraft-drawer-summary" role="status"><div>{t('values.note.count', { count: filtered.length })}</div></div>
-    <div class="propcraft-toolbar"><input class="propcraft-input" aria-label={t('values.note.search')} placeholder={t('values.note.search')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(PAGE); }} /></div>
+    <div class="propcraft-toolbar"><input class="propcraft-input" placeholder={t('values.note.search')} value={search} onInput={event => { setSearch(event.currentTarget.value); setLimit(PAGE); }} /></div>
     <div class="propcraft-drawer-body">
       {filtered.length === 0 ? <div class="propcraft-empty">{t('values.note.none')}</div> : filtered.slice(0, limit).map(path => (
         <div class="propcraft-diff" key={path}>

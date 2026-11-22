@@ -1,4 +1,5 @@
 import { parser, Strikethrough } from '@lezer/markdown';
+import { TAG_TOKEN_SCAN_REGEX } from '../domain/normalize';
 import type { CachedTag } from '../ports/VaultPort';
 
 const markdownParser = parser.configure(Strikethrough);
@@ -35,7 +36,7 @@ export function parseBodyTags(source: string, bodyStart: number): CachedTag[] {
   }
   const tags: CachedTag[] = [];
   let range = 0;
-  for (const match of body.matchAll(/#(?:(?![#$+<=>^`|~])[\p{L}\p{M}\p{N}\p{S}_/-])+/gu)) {
+  for (const match of body.matchAll(TAG_TOKEN_SCAN_REGEX)) {
     const start = match.index; let end = start + match[0].length;
     let slashCount = 0;
     while (body[start - slashCount - 1] === '\\') slashCount++;

@@ -19,6 +19,16 @@ function ruleIdentity(rule: ValueMappingRule): string {
   return scalarIdentity(rule.from);
 }
 
+const EMPTY_STATE_SET: ReadonlySet<string> = new Set(EMPTY_STATES);
+
+function isEmptyState(value: unknown): value is EmptyState {
+  return typeof value === 'string' && EMPTY_STATE_SET.has(value);
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
 function targetListSafe(target: ValueTarget): boolean {
   if (target.type !== 'list') return true;
   return target.value.every(item => typeof item.value !== 'number' || Number.isFinite(item.value));
@@ -40,7 +50,8 @@ export function validateValueMapping(operation: MapPropertyValuesOperation): Map
   }
   const fill = (operation as { fill?: FillSpec }).fill;
   if (fill) {
-    if (!Array.isArray(fill.states) || fill.states.some(state => !EMPTY_STATES.includes(state)) || !isValueTarget(fill.target) || !targetListSafe(fill.target)) {
+    const states: unknown = fill.states;
+    if (!isUnknownArray(states) || states.some(state => !isEmptyState(state)) || !isValueTarget(fill.target) || !targetListSafe(fill.target)) {
       issues.push({ code: 'input-invalid' });
     }
   }

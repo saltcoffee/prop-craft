@@ -1,10 +1,11 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useId, useRef } from 'preact/hooks';
 
 export function Dialog({ title, closeLabel, onClose, children, drawer = false }: {
   title: string; closeLabel: string; onClose?: () => void; children: ComponentChildren; drawer?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const element = root.current!;
     const doc = element.ownerDocument, previous = doc.activeElement as HTMLElement | null;
@@ -12,7 +13,7 @@ export function Dialog({ title, closeLabel, onClose, children, drawer = false }:
     return () => { if (previous?.isConnected) previous.focus(); };
   }, []);
   return <div class={drawer ? 'propcraft-drawer-backdrop' : 'propcraft-overlay'} onClick={event => { if (event.target === event.currentTarget) onClose?.(); }}>
-    <div class={drawer ? 'propcraft-drawer' : 'propcraft-dialog'} role="dialog" aria-modal="true" aria-label={title} ref={root} onKeyDown={event => {
+    <div class={drawer ? 'propcraft-drawer' : 'propcraft-dialog'} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={root} onKeyDown={event => {
       if (event.key === 'Escape' && onClose) { event.preventDefault(); event.stopPropagation(); onClose(); }
       if (event.key !== 'Tab') return;
       const nodes = [...(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]') ?? [])].filter(el => el.getClientRects().length);
@@ -21,7 +22,7 @@ export function Dialog({ title, closeLabel, onClose, children, drawer = false }:
       if (event.shiftKey && (active === first || !nodes.includes(active as HTMLElement))) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && (active === last || !nodes.includes(active as HTMLElement))) { event.preventDefault(); first.focus(); }
     }}>
-      <div class="propcraft-drawer-head"><strong tabIndex={-1} data-dialog-title>{title}</strong>{onClose ? <button class="propcraft-link" aria-label={closeLabel} onClick={onClose}>✕</button> : null}</div>
+      <div class="propcraft-drawer-head"><strong id={titleId} tabIndex={-1} data-dialog-title>{title}</strong>{onClose ? <button class="propcraft-link" aria-label={closeLabel} onClick={onClose}>✕</button> : null}</div>
       {children}
     </div>
   </div>;

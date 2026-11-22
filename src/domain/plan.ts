@@ -1,4 +1,4 @@
-import type { ChangeOperation, ConflictStrategy, ConvertPropertyTypeOperation, FileChange, FileMeta, MapPropertyValuesOperation, MergeStrategy, PropertyValueType, RegionFormat, TextOp } from './models';
+import type { ChangeOperation, ConflictStrategy, ConvertPropertyTypeOperation, FileChange, FileMeta, MergeStrategy, PropertyValueType, RegionFormat, TextOp } from './models';
 import type { AnalyzedOperation, PreviewDecision, ValueAnalysis, ValueConfirmation } from './preview';
 import { isValidTag, tagIdentity, stripHash, tagWithHash } from './normalize';
 import { normalizeDateValue } from './date';
@@ -8,6 +8,9 @@ import { isTypeCompatible } from './type-config';
 import { analyzeConversion } from './value-conversion';
 import { analyzeValueMapping, compileValueMapping, type CompiledValueMapping } from './value-mapping';
 import { scalarFromRaw, scalarIdentity } from './property-value';
+import { parseFrontmatterTags } from './frontmatter-tags';
+import { analyzeTagBranch, compileTagBranch } from './tag-migration';
+import { analyzeTagProperty, compileTagProperty } from './tag-property';
 
 export interface ValueAnalyzeContext {
   mapping?: CompiledValueMapping;
@@ -15,7 +18,7 @@ export interface ValueAnalyzeContext {
 }
 
 export function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
+  if (a === b) return a !== 0 || Object.is(a, b);
   if (typeof a !== typeof b) return false;
   if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b)
     && a.length === b.length && a.every((value, index) => deepEqual(value, b[index]));
@@ -45,11 +48,14 @@ function dedupeTarget(values: unknown[], target: string): unknown[] {
     return true;
   });
 }
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
 export function rewriteFrontmatterTag(fm: Record<string, unknown>, from: string, to: string, key: 'tags' | 'tag' = 'tags'): { key: 'tags' | 'tag'; value: unknown } | null {
   if (!hasOwn(fm, key)) return null;
   const raw = fm[key];
-  if (Array.isArray(raw)) {
-    const mapped = raw.map(entry => typeof entry === 'string' ? rewriteTagEntry(entry, from, to) : entry);
+  if (isUnknownArray(raw)) {
+    const mapped = raw.map((entry): unknown => typeof entry === 'string' ? rewriteTagEntry(entry, from, to) : entry);
     return deepEqual(mapped, raw) ? null : { key, value: dedupeTarget(mapped, to) };
   }
   if (typeof raw === 'string') {
@@ -107,8 +113,10 @@ export function planAddProperty(file: FileMeta, key: string, value: unknown, _va
   if (hasOwn(fm, key) && onConflict === 'skip') return null;
   const after = cloneFrontmatter(file);
   if (hasOwn(fm, key) && onConflict === 'append') {
-    const existing = fm[key];
-    after[key] = Array.isArray(existing) ? [...existing, ...(Array.isArray(value) ? value : [value])] : [existing, value];
+    const existing: unknown = fm[key];
+    after[key] = isUnknownArray(existing)
+      ? [...existing, ...(isUnknownArray(value) ? value : [value])]
+      : [existing, value];
   } else after[key] = value;
   return deepEqual(after, fm) ? null : fmChange(file, after);
 }
@@ -219,11 +227,33 @@ export function analyzeOperation(file: FileMeta, operation: ChangeOperation, dec
       return { ...result, state: 'ready', reason: undefined };
     }
     case 'mapPropertyValues': {
-      const compiled = context?.mapping ?? compileValueMapping(operation as MapPropertyValuesOperation);
-      return finishValue(file, operation, analyzeValueMapping(file, operation as MapPropertyValuesOperation, compiled), decision, context);
+      const compiled = context?.mapping ?? compileValueMapping(operation);
+      return finishValue(file, operation, analyzeValueMapping(file, operation, compiled), decision, context);
     }
     case 'convertPropertyType':
-      return finishValue(file, operation, analyzeConversionForFile(file, operation as ConvertPropertyTypeOperation), decision, context);
+      return finishValue(file, operation, analyzeConversionForFile(file, operation), decision, context);
+    case 'migrateTagBranch': {
+      const compiled = compileTagBranch(operation);
+      const analyzed = analyzeTagBranch(file, compiled, parseFrontmatterTags(file.rawFrontmatter));
+      return { ...result, state: analyzed.state, reason: analyzed.reason, change: analyzed.change };
+    }
+    case 'convertTagsToProperty': {
+      const compiled = compileTagProperty(operation);
+      const analyzed = analyzeTagProperty(file, compiled, parseFrontmatterTags(file.rawFrontmatter));
+      if (analyzed.baseState === 'blocked') return { ...result, state: 'blocked', reason: analyzed.reason };
+      if (analyzed.baseState === 'noop') return { ...result, state: 'noop', reason: analyzed.reason };
+      if (analyzed.requiresResolution) {
+        const res = decision?.tagPropertyResolution;
+        if (!res) return { ...result, state: 'conflict', conflict: true, reason: analyzed.reason };
+        if (res.kind === 'keep-existing' || res.kind === 'skip') return { ...result, state: 'conflict', conflict: true, reason: 'policy-skip' };
+        const chosen = analyzed.candidates.find(c =>
+          res.kind === 'replace-list' ? c.resolution.kind === 'replace-list' : c.ruleIds.includes(res.ruleId),
+        );
+        if (!chosen) throw new OperationError('invalid-decision', file.path);
+        return { ...result, state: 'ready', change: chosen.change };
+      }
+      return { ...result, state: 'ready', change: analyzed.candidates[0]?.change };
+    }
   }
   return result.change ? { ...result, state: 'ready', reason: undefined } : result;
 }

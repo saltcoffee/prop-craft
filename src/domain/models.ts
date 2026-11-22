@@ -115,6 +115,12 @@ export type ValueConversion =
   | { kind: 'split-list'; delimiter: SplitDelimiter; trimItems: boolean; dropEmptyItems: boolean }
   | { kind: 'normalize-date'; target: 'date' | 'datetime'; regionFormat: RegionFormat };
 
+export interface TagPropertyRule {
+  id: string;
+  tag: string;
+  value: ValueScalar;
+}
+
 export type ChangeOperation =
   | { kind: 'renameProperty'; from: string; to: string }
   | { kind: 'mergeProperty'; from: string; to: string }
@@ -125,10 +131,14 @@ export type ChangeOperation =
   | { kind: 'normalizeDate'; key: string; target: 'date' | 'datetime'; regionFormat: RegionFormat }
   | { kind: 'mapPropertyValues'; key: string; mode: 'field'; rules: readonly ValueMappingRule[]; fill?: FillSpec }
   | { kind: 'mapPropertyValues'; key: string; mode: 'member'; rules: readonly ValueMappingRule[]; fill?: never }
-  | { kind: 'convertPropertyType'; key: string; sources: readonly ValueScalar[]; conversion: ValueConversion };
+  | { kind: 'convertPropertyType'; key: string; sources: readonly ValueScalar[]; conversion: ValueConversion }
+  | { kind: 'migrateTagBranch'; from: string; to: string; includeDescendants: boolean }
+  | { kind: 'convertTagsToProperty'; key: string; mode: 'scalar' | 'list'; rules: readonly TagPropertyRule[]; removeSourceTags: boolean };
 
 export type MapPropertyValuesOperation = Extract<ChangeOperation, { kind: 'mapPropertyValues' }>;
 export type ConvertPropertyTypeOperation = Extract<ChangeOperation, { kind: 'convertPropertyType' }>;
+export type MigrateTagBranchOperation = Extract<ChangeOperation, { kind: 'migrateTagBranch' }>;
+export type ConvertTagsToPropertyOperation = Extract<ChangeOperation, { kind: 'convertTagsToProperty' }>;
 
 export interface TextOp {
   start: number;

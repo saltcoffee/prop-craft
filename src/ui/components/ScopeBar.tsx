@@ -18,9 +18,9 @@ export function ScopeBar({ query, result, snapshot, busy, error, onChange, plugi
     const condition: ScopeCondition = kind === 'tag' ? { id, kind, tag: '', operator: 'contains', includeDescendants: false } : { id, kind, key: '', operator: 'exists' };
     onChange({ ...query, conditions: [...query.conditions, condition] });
   };
-  return <section class="propcraft-scope" aria-label={t('scope.title')} aria-busy={busy}>
+  return <section class="propcraft-scope" aria-labelledby="propcraft-scope-title" aria-busy={busy}>
     <div class="propcraft-toolbar">
-      <strong>{t('scope.title')}</strong>
+      <strong id="propcraft-scope-title">{t('scope.title')}</strong>
       <label>{t('scope.folder')} <select class="propcraft-input" value={query.base.kind === 'all' ? 'all' : `folder:${query.base.path}`} onChange={event => {
         const value = event.currentTarget.value;
         onChange({ ...query, base: value === 'all' ? { kind: 'all' } : { kind: 'folder', path: value.slice(7), includeSubfolders: true } });
@@ -37,25 +37,25 @@ export function ScopeBar({ query, result, snapshot, busy, error, onChange, plugi
     <div class="propcraft-muted">{t('scope.and')}</div>
     {query.conditions.map(condition => <div class="propcraft-condition" key={condition.id}>
       {condition.kind === 'tag' ? <>
-        <select class="propcraft-input" aria-label={t('scope.operator')} value={condition.operator} onChange={event => update({ ...condition, operator: event.currentTarget.value as 'contains' | 'not-contains' })}>
+        <select class="propcraft-input" value={condition.operator} onChange={event => update({ ...condition, operator: event.currentTarget.value as 'contains' | 'not-contains' })}>
           <option value="contains">{t('scope.contains')}</option><option value="not-contains">{t('scope.notContains')}</option>
         </select>
-        <input class="propcraft-input" aria-label={t('scope.tag')} placeholder="#book" list="propcraft-scope-tags" value={condition.tag} onInput={event => update({ ...condition, tag: event.currentTarget.value })} />
+        <input class="propcraft-input" placeholder="#book" list="propcraft-scope-tags" value={condition.tag} onInput={event => update({ ...condition, tag: event.currentTarget.value })} />
         <label class="propcraft-check"><input type="checkbox" checked={condition.includeDescendants} onChange={event => update({ ...condition, includeDescendants: event.currentTarget.checked })} />{t('scope.descendants')}</label>
       </> : <>
-        <input class="propcraft-input" aria-label={t('scope.property')} placeholder={t('scope.property')} list="propcraft-scope-keys" value={condition.key} onInput={event => update({ ...condition, key: event.currentTarget.value })} />
-        <select class="propcraft-input" aria-label={t('scope.operator')} value={condition.operator} onChange={event => {
+        <input class="propcraft-input" placeholder={t('scope.property')} list="propcraft-scope-keys" value={condition.key} onInput={event => update({ ...condition, key: event.currentTarget.value })} />
+        <select class="propcraft-input" value={condition.operator} onChange={event => {
           const operator = event.currentTarget.value as 'exists' | 'missing' | 'empty' | 'equals';
           update(operator === 'equals' ? { ...condition, operator, value: '' } : { ...condition, operator });
         }}>
           <option value="exists">{t('scope.exists')}</option><option value="missing">{t('scope.missing')}</option><option value="empty">{t('scope.empty')}</option><option value="equals">{t('scope.equals')}</option>
         </select>
         {condition.operator === 'equals' ? <>
-          <select class="propcraft-input" aria-label={t('scope.valueType')} value={typeof condition.value} onChange={event => update({ ...condition, value: event.currentTarget.value === 'boolean' ? false : event.currentTarget.value === 'number' ? NaN : '' })}>
+          <select class="propcraft-input" value={typeof condition.value} onChange={event => update({ ...condition, value: event.currentTarget.value === 'boolean' ? false : event.currentTarget.value === 'number' ? NaN : '' })}>
             <option value="string">text</option><option value="number">number</option><option value="boolean">boolean</option>
           </select>
-          {typeof condition.value === 'boolean' ? <select class="propcraft-input" aria-label={t('scope.value')} value={String(condition.value)} onChange={event => update({ ...condition, value: event.currentTarget.value === 'true' })}><option value="false">false</option><option value="true">true</option></select>
-            : <input class="propcraft-input" aria-label={t('scope.value')} type={typeof condition.value === 'number' ? 'number' : 'text'} value={typeof condition.value === 'number' && !Number.isFinite(condition.value) ? '' : condition.value} onInput={event => update({ ...condition, value: typeof condition.value === 'number' ? event.currentTarget.value.trim() === '' ? NaN : Number(event.currentTarget.value) : event.currentTarget.value })} />}
+          {typeof condition.value === 'boolean' ? <select class="propcraft-input" value={String(condition.value)} onChange={event => update({ ...condition, value: event.currentTarget.value === 'true' })}><option value="false">false</option><option value="true">true</option></select>
+            : <input class="propcraft-input" placeholder={t('scope.value')} type={typeof condition.value === 'number' ? 'number' : 'text'} value={typeof condition.value === 'number' && !Number.isFinite(condition.value) ? '' : condition.value} onInput={event => update({ ...condition, value: typeof condition.value === 'number' ? event.currentTarget.value.trim() === '' ? NaN : Number(event.currentTarget.value) : event.currentTarget.value })} />}
         </> : null}
       </>}
       <button class="propcraft-link" aria-label={t('scope.remove')} onClick={() => onChange({ ...query, conditions: query.conditions.filter(c => c.id !== condition.id) })}>✕</button>

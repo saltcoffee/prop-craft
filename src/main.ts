@@ -7,6 +7,7 @@ import { ObsidianTypeConfigCodec } from './infrastructure/ObsidianTypeConfigCode
 import { ChangeExecutor } from './application/ChangeExecutor';
 import { ChangePlanner } from './application/ChangePlanner';
 import { PropertyValueService } from './application/PropertyValueService';
+import { TagWorkbenchService } from './application/TagWorkbenchService';
 import { JournalService } from './application/JournalService';
 import { SnapshotStore } from './application/SnapshotStore';
 import { TypeMigration } from './application/TypeMigration';
@@ -30,6 +31,7 @@ export default class PropCraftPlugin extends Plugin {
   scopeService!: ScopeService;
   coordinator!: OperationCoordinator;
   valueService!: PropertyValueService;
+  tagWorkbenchService!: TagWorkbenchService;
 
   private adapter!: ObsidianVaultAdapter;
   private indexer!: VaultIndexer;
@@ -57,6 +59,7 @@ export default class PropCraftPlugin extends Plugin {
 
     this.scopeService = new ScopeService(() => this.settings);
     this.valueService = new PropertyValueService(this.typeMigration, () => this.settings);
+    this.tagWorkbenchService = new TagWorkbenchService(() => this.settings);
     this.coordinator = new OperationCoordinator(this.planner, this.executor, this.journal, this.undoService);
     await this.coordinator.initialize();
 
@@ -106,6 +109,10 @@ export default class PropCraftPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  getDeclaredType(key: string): string | undefined {
+    return this.typeMigration?.getCached().get(key.toLowerCase());
   }
 
   reindex(): void {

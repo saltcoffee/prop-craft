@@ -1,6 +1,6 @@
 import type { PreparedPlan } from '../domain/preview';
 import { OperationError } from '../domain/errors';
-import { canRemoveJournal, initialState, needsReconciliation, utf8Bytes, type JournalListItem, type JournalStateV2, type JournalTransactionV2, type LoadedJournal } from '../domain/journal';
+import { canRemoveJournal, initialState, needsReconciliation, serializeJournalJson, utf8Bytes, type JournalListItem, type JournalStateV2, type JournalTransactionV2, type LoadedJournal } from '../domain/journal';
 import type { JournalStore } from '../ports/JournalStore';
 import type { PropCraftSettings } from '../settings-model';
 export type { JournalStore } from '../ports/JournalStore';
@@ -18,13 +18,13 @@ export class JournalService {
     const state = initialState(transaction);
     transaction.stateBudgetBytes = utf8Bytes(JSON.stringify(state)) + state.entries.length * 256 + 4096;
     const metas = await this.store.list(), settings = this.getSettings();
-    const needed = utf8Bytes(JSON.stringify(transaction)) + transaction.stateBudgetBytes;
+    const needed = utf8Bytes(serializeJournalJson(transaction)) + transaction.stateBudgetBytes;
     if (!Number.isSafeInteger(settings.journalMaxTransactions) || settings.journalMaxTransactions < 1 || metas.length >= settings.journalMaxTransactions
       || !Number.isFinite(settings.journalMaxBytes) || needed + metas.reduce((total, meta) => total + meta.reservedBytes, 0) > settings.journalMaxBytes) throw new OperationError('journal-capacity');
     try {
       await this.store.prepare(transaction, state);
       const loaded = await this.store.load(transaction.transactionId);
-      if (loaded.kind !== 'v2' || !loaded.state || JSON.stringify(loaded.transaction) !== JSON.stringify(transaction)
+      if (loaded.kind !== 'v2' || !loaded.state || serializeJournalJson(loaded.transaction) !== serializeJournalJson(transaction)
         || JSON.stringify(loaded.state) !== JSON.stringify(state)) throw new OperationError('journal-invalid');
     } catch (error) { throw error instanceof OperationError ? error : new OperationError('journal-unavailable'); }
     this.activeStates.set(transaction.transactionId, { state: structuredClone(state), budget: transaction.stateBudgetBytes });

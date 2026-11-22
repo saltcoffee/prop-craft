@@ -2,6 +2,7 @@ import type { ExecutionResult, PreviewView } from '../domain/preview';
 import type { RecoveryPreview, RecoveryResult } from '../domain/recovery';
 import type { IssueCode } from '../domain/errors';
 import { OperationError } from '../domain/errors';
+import { validateTagPath } from '../domain/normalize';
 import type { ChangePlanner } from './ChangePlanner';
 import type { ChangeExecutor, ExecutionProgress } from './ChangeExecutor';
 import type { JournalService } from './JournalService';
@@ -72,17 +73,34 @@ export class OperationCoordinator {
     this.abort?.abort();
     if (this.state.kind === 'running') this.set({ kind: 'stopping', progress: this.state.progress });
   }
-  async retry(id: string, mode: 'unfinished' | 'failed' | 'not-run' | 'stale' = 'unfinished'): Promise<PreviewView> {
+  async retry(id: string, mode: 'unfinished' | 'failed' | 'not-run' | 'stale' = 'unfinished', signal?: AbortSignal): Promise<PreviewView> {
     this.acquire();
+    const controller = new AbortController();
+    this.abort = controller;
+    const forwardAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', forwardAbort, { once: true });
+    }
     try {
+      controller.signal.throwIfAborted();
       const loaded = await this.journal.get(id);
       if (loaded.kind !== 'v2' || !loaded.state) throw new OperationError('journal-invalid');
       const statuses = mode === 'unfinished' ? ['failed', 'not-run'] : [mode];
       const paths = loaded.state.entries.filter(entry => statuses.includes(entry.execution)).map(entry => entry.path);
       if (!paths.length) throw new OperationError('plan-invalid');
+      const op = loaded.transaction.operation;
+      if (op.kind === 'renameTag' || op.kind === 'mergeTag') {
+        // Legacy journals remain readable/recoverable, but new writes from retry enforce strict tag-token rules.
+        validateTagPath(op.to);
+      }
       // Rebuild from current contents. Individual destructive choices are never inherited.
-      return await this.planner.createPreview({ operation: loaded.transaction.operation, scope: loaded.transaction.scope }, undefined, { paths, retryOf: id });
-    } finally { this.busy = false; }
+      return await this.planner.createPreview({ operation: op, scope: loaded.transaction.scope }, controller.signal, { paths, retryOf: id });
+    } finally {
+      signal?.removeEventListener('abort', forwardAbort);
+      if (this.abort === controller) this.abort = null;
+      this.busy = false;
+    }
   }
   async viewResult(id: string): Promise<void> {
     this.acquire(true);
